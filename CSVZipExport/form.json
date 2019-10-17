@@ -1,0 +1,49 @@
+{
+    "actions":
+    [
+    {
+        "type": "Select",
+        "caption": "Logged Variables",
+        "options": [],
+        "name": "ArchiveVariable"
+    },
+    {
+        "type": "SelectDateTime",
+        "caption": "Aggregation Start",
+        "name": "AggregationStart"
+    },
+    {
+        "type": "SelectDateTime",
+        "caption": "Aggregation End",
+        "name": "AggregationEnd"
+    },
+    {
+        "type": "Select",
+        "caption": "Aggregation Stage",
+        "options":
+        [
+            {"caption": "1-Minute", "value": 6},
+            {"caption": "5-Minute", "value": 5},
+            {"caption": "Hourly", "value": 0},
+            {"caption": "Daily", "value": 1},
+            {"caption": "Weekly", "value": 2},
+            {"caption": "Monthly", "value": 3},
+            {"caption": "Yearly", "value": 4}
+        ],
+        "name": "AggregationStage"
+    },
+    {
+        "type": "Button",
+        "caption": "Export",
+        "onClick": "CSV_Export($id, $ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd );",
+        "link": true
+    },
+    {
+        "type": "ProgressBar",
+        "name": "ExportBar",
+        "indeterminate": true,
+        "caption": "Exporting . . .",
+        "visible": false
+    }
+    ]
+}

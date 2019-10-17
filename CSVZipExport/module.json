@@ -1,0 +1,14 @@
+{
+    "id": "{0D5C5A1A-9051-0536-CBA2-4187031E26E3}",
+    "name": "CSVZipExport",
+    "type": 3,
+    "vendor": "",
+    "aliases": [
+        "CSV-Zip-Export"
+    ],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "CSV",
+    "url": ""
+}

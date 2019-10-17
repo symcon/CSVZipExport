@@ -1,0 +1,19 @@
+{
+    "translations": {
+        "de": {
+            "Logged Variables": "Geloggte Variablen",
+            "Aggregation Start": "Start der Aggregation",
+            "Aggregation End": "Ende der Aggregation",
+            "Aggregation Stage": "Aggregationsstufe",
+            "1-Minute": "1-Minütig",
+            "5-Minute": "5-Minütig",
+            "Hourly": "Stündlich",
+            "Daily": "Täglich",
+            "Weekly": "Wöchentlich",
+            "Monthly": "Monatlich",
+            "Yearly": "Jährlich",
+            "Export": "Exportieren",
+            "Exporting . . .": "Exportiere . . ."
+        }
+    }
+}

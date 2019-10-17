@@ -1,0 +1,12 @@
+{
+    "id": "{9B96A7E2-8EC6-2573-50B6-C3EEC56C57D4}",
+    "author": "Symcon GmbH",
+    "name": "CSVZipExport",
+    "url": "https://symcon.de/",
+    "compatibility": {
+        "version": "5.0"
+    },
+    "version": "1.0",
+    "build": 0,
+    "date": 0
+}
