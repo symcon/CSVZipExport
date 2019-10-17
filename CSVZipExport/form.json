@@ -35,7 +35,7 @@
     {
         "type": "Button",
         "caption": "Export",
-        "onClick": "CSV_Export($id, $ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd );",
+        "onClick": "echo CSV_Export($id, $ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd);",
         "link": true
     },
     {

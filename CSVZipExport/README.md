@@ -13,7 +13,11 @@ Beschreibung des Moduls.
 
 ### 1. Funktionsumfang
 
-*
+* Exportieren von aggregierten Daten einer Variable
+* Daten in CSV-Datei ein einem ZIP-Archiv exportieren
+* Auflistung aller geloggten Variablen
+* Zeitraum der Aggregierung frei wählbar
+* Aggregierungsstufe kann ausgewählt werden
 
 ### 2. Vorraussetzungen
 
@@ -22,7 +26,7 @@ Beschreibung des Moduls.
 ### 3. Software-Installation
 
 * Über den Module Store das 'CSVZipExport'-Modul installieren.
-* Alternativ über das Module Control folgende URL hinzufügen
+* Alternativ über das Module Control folgende URL hinzufügen `https://github.com/symcon/CSVZipExport/`
 
 ### 4. Einrichten der Instanzen in IP-Symcon
 
@@ -30,10 +34,13 @@ Beschreibung des Moduls.
 
 __Konfigurationsseite__:
 
-Name     | Beschreibung
--------- | ------------------
-         |
-         |
+Name                  | Beschreibung
+----------------------| ------------------
+Geloggte Variablen    | Auswahl der Variable welche exportiert werden soll
+Start der Aggregation | Beginn des Aggregationszeitraums
+Ende der Aggregation  | Ende des Aggregationszeitraums
+Aggregationsstufe     | Stufe der Aggregation 
+Exportieren           | Die aggregierten Daten der Variable werden exportiert
 
 ### 5. Statusvariablen und Profile
 
@@ -41,26 +48,19 @@ Die Statusvariablen/Kategorien werden automatisch angelegt. Das Löschen einzeln
 
 #### Statusvariablen
 
-Name   | Typ     | Beschreibung
------- | ------- | ------------
-       |         |
-       |         |
+Es werden keine zusätzlichen Statusvariablen erstellt.
 
 #### Profile
-
-Name   | Typ
------- | -------
-       |
-       |
+Es werden keine zusätzlichen Profile erstellt.
 
 ### 6. WebFront
 
-Die Funktionalität, die das Modul im WebFront bietet.
+Dieses Modul bietet keinerlei Funktion im Webfront.
 
 ### 7. PHP-Befehlsreferenze
 
-`boolean CSV_BeispielFunktion(integer $InstanzID);`
-Erklärung der Funktion.
+`boolean CSV_Export(integer $InstanzID, integer $ArchiveVariable, integer $AggregationStage, integer $AggregationStart, integer $AggregationEnd);`
+Erzeugt ein Zip-Archiv basierend auf den gegebenen Parametern und liefert den relativen Pfad des Archivs als Rückgabewert.
 
 Beispiel:
-`CSV_BeispielFunktion(12345);`
+`CSV_BeispielFunktion(12345, 54321, 4, 2293574400, 3127161600);`

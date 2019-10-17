@@ -76,7 +76,7 @@ class CSVZipExport extends IPSModule
         $this->SetTimerInterval('DeleteZipTimer', 1000 * 60 * 60);
 
         //Start the download
-        echo "/user/CSV_$this->InstanceID.zip";
+        return "/user/CSV_$this->InstanceID.zip";
     }
 
     public function DeleteZip()
