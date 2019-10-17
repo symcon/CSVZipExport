@@ -7,6 +7,8 @@ class CSVZipExport extends IPSModule
     {
         //Never delete this line!
         parent::Create();
+        $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
+        $this->DeleteZip();
     }
 
     public function Destroy()
@@ -70,8 +72,18 @@ class CSVZipExport extends IPSModule
         //Hide progressbar
         $this->UpdateFormField('ExportBar', 'visible', false);
 
+        //Reset ZipDeleteTimer
+        $this->SetTimerInterval('DeleteZipTimer', 1000 * 60 * 60);
+
         //Start the download
         echo "/user/CSV_$this->InstanceID.zip";
+    }
+
+    public function DeleteZip()
+    {
+        $tempfile = IPS_GetKernelDir() . 'webfront' . DIRECTORY_SEPARATOR . 'user' . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        unlink($tempfile);
+        $this->SetTimerInterval('DeleteZipTimer', 0);
     }
 
     //Transfer json string to timestamp
