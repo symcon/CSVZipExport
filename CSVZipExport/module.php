@@ -23,9 +23,9 @@ class CSVZipExport extends IPSModule
 
     public function GetConfigurationForm()
     {
+        //Add options to form
         $jsonForm = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
         $jsonForm['actions'][0]['options'] = $this->GetOptions();
-
         return json_encode($jsonForm);
     }
 
@@ -36,22 +36,25 @@ class CSVZipExport extends IPSModule
         $endTimeStamp = 0;
 
         switch ($AggregationStage) {
-                case 0:
-                case 5:
-                case 6:
+                case 0: //Hourly
+                case 5: //1-Minute
+                case 6: //5-Minute
                     $startTimeStamp = $this->TransferTime($AggregationStart, true, false);
                     $endTimeStamp = $this->TransferTime($AggregationEnd, false, false);
                     break;
-                case 1:
-                case 2:
-                case 3:
-                case 4:
+                case 1: //Daily
+                case 2: //Weekly
+                case 3: //Monthly
+                case 4: //Yearly
                     $startTimeStamp = $this->TransferTime($AggregationStart, true, true);
                     $endTimeStamp = $this->TransferTime($AggregationEnd, false, true);
                     break;
             }
 
+        //Display progressbar
         $this->UpdateFormField('ExportBar', 'visible', true);
+
+        //Generate zip with aggregated values
         $tempfile = IPS_GetKernelDir() . 'webfront' . DIRECTORY_SEPARATOR . 'user' . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
         $zip = new ZipArchive();
         if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
@@ -64,11 +67,14 @@ class CSVZipExport extends IPSModule
             $zip->close();
         }
         sleep(1);
+        //Hide progressbar
         $this->UpdateFormField('ExportBar', 'visible', false);
 
+        //Start the download
         echo "/user/CSV_$this->InstanceID.zip";
     }
 
+    //Transfer json string to timestamp
     private function TransferTime($JsonTime, bool $Start, bool $ignoreTime)
     {
         $Time = json_decode($JsonTime, true);
@@ -91,6 +97,7 @@ class CSVZipExport extends IPSModule
         return $TimeStamp;
     }
 
+    //Get all logged variables as options
     private function GetOptions()
     {
         $archiveControlID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
