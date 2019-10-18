@@ -116,9 +116,11 @@ class CSVZipExport extends IPSModule
         $aggregationVariables = AC_GetAggregationVariables($archiveControlID, false);
         $options = [];
         foreach ($aggregationVariables as $aggregationVariable) {
-            $jsonString['caption'] = IPS_GetName($aggregationVariable['VariableID']);
-            $jsonString['value'] = $aggregationVariable['VariableID'];
-            $options[] = $jsonString;
+            if(IPS_VariableExists($aggregationVariable['VariableID'])) {
+                $jsonString['caption'] = IPS_GetName($aggregationVariable['VariableID']);
+                $jsonString['value'] = $aggregationVariable['VariableID'];
+                $options[] = $jsonString;
+            }
         }
         return $options;
     }
