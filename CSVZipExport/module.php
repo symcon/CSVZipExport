@@ -82,10 +82,9 @@ class CSVZipExport extends IPSModule
     public function DeleteZip()
     {
         $tempfile = IPS_GetKernelDir() . 'webfront' . DIRECTORY_SEPARATOR . 'user' . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
-        if(file_exists($tempfile))
-        {
+        if (file_exists($tempfile)) {
             unlink($tempfile);
-        }    
+        }
         $this->SetTimerInterval('DeleteZipTimer', 0);
     }
 
@@ -119,7 +118,7 @@ class CSVZipExport extends IPSModule
         $aggregationVariables = AC_GetAggregationVariables($archiveControlID, false);
         $options = [];
         foreach ($aggregationVariables as $aggregationVariable) {
-            if(IPS_VariableExists($aggregationVariable['VariableID'])) {
+            if (IPS_VariableExists($aggregationVariable['VariableID'])) {
                 $jsonString['caption'] = IPS_GetName($aggregationVariable['VariableID']);
                 $jsonString['value'] = $aggregationVariable['VariableID'];
                 $options[] = $jsonString;
