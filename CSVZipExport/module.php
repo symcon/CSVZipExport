@@ -82,7 +82,9 @@ class CSVZipExport extends IPSModule
     public function DeleteZip()
     {
         $tempfile = IPS_GetKernelDir() . 'webfront' . DIRECTORY_SEPARATOR . 'user' . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
-        unlink($tempfile);
+        if(file_exists($tempfile)) {
+            unlink($tempfile);
+        }    
         $this->SetTimerInterval('DeleteZipTimer', 0);
     }
 
