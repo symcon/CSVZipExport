@@ -19,7 +19,7 @@ Beschreibung des Moduls.
 * Zeitraum der Aggregierung frei wählbar
 * Aggregierungsstufe kann ausgewählt werden
 
-### 2. Vorraussetzungen
+### 2. Voraussetzungen
 
 - IP-Symcon ab Version 5.0
 
