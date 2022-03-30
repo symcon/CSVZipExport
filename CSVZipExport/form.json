@@ -1,49 +1,147 @@
 {
-    "actions":
-    [
-    {
-        "type": "Select",
-        "caption": "Logged Variables",
-        "options": [],
-        "name": "ArchiveVariable"
-    },
-    {
-        "type": "SelectDateTime",
-        "caption": "Aggregation Start",
-        "name": "AggregationStart"
-    },
-    {
-        "type": "SelectDateTime",
-        "caption": "Aggregation End",
-        "name": "AggregationEnd"
-    },
-    {
-        "type": "Select",
-        "caption": "Aggregation Stage",
-        "options":
-        [
-            {"caption": "1-Minute", "value": 6},
-            {"caption": "5-Minute", "value": 5},
-            {"caption": "Hourly", "value": 0},
-            {"caption": "Daily", "value": 1},
-            {"caption": "Weekly", "value": 2},
-            {"caption": "Monthly", "value": 3},
-            {"caption": "Yearly", "value": 4}
-        ],
-        "name": "AggregationStage"
-    },
-    {
-        "type": "Button",
-        "caption": "Export",
-        "onClick": "echo CSV_Export($id, $ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd);",
-        "link": true
-    },
-    {
-        "type": "ProgressBar",
-        "name": "ExportBar",
-        "indeterminate": true,
-        "caption": "Exporting . . .",
-        "visible": false
-    }
+    "elements": [
+        {
+            "type": "RowLayout",
+            "items": [
+                {
+                    "type": "ValidationTextBox",
+                    "caption": "Filter",
+                    "name": "Filter",
+                    "width": "500px"
+                },
+                {
+                    "type": "Button",
+                    "caption": "Apply Filter",
+                    "onClick": "CSV_UpdateFilter($id, $Filter);"
+                }
+            ]
+        },
+        {
+            "type": "Select",
+            "caption": "Logged Variables",
+            "options": [],
+            "name": "ArchiveVariable",
+            "width": "700px"
+        },
+        {
+            "type": "SelectDateTime",
+            "caption": "Aggregation Start",
+            "name": "AggregationStart",
+            "width": "700px"
+        },
+        {
+            "type": "SelectDateTime",
+            "caption": "Aggregation End",
+            "name": "AggregationEnd",
+            "width": "700px"
+        },
+        {
+            "type": "Select",
+            "caption": "Aggregation Stage",
+            "options": [
+                {
+                    "caption": "1-Minute",
+                    "value": 6
+                },
+                {
+                    "caption": "5-Minute",
+                    "value": 5
+                },
+                {
+                    "caption": "Hourly",
+                    "value": 0
+                },
+                {
+                    "caption": "Daily",
+                    "value": 1
+                },
+                {
+                    "caption": "Weekly",
+                    "value": 2
+                },
+                {
+                    "caption": "Monthly",
+                    "value": 3
+                },
+                {
+                    "caption": "Yearly",
+                    "value": 4
+                }
+            ],
+            "name": "AggregationStage",
+            "width": "700px"
+        },
+        {
+            "type": "Button",
+            "caption": "Download Export Now",
+            "onClick": "echo CSV_UserExport($id, intval($ArchiveVariable), intval($AggregationStage), $AggregationStart, $AggregationEnd);",
+            "link": true
+        },
+        {
+            "type": "ProgressBar",
+            "name": "ExportBar",
+            "indeterminate": true,
+            "caption": "Exporting . . .",
+            "visible": false
+        },
+        {
+            "type": "Label",
+            "caption": " "
+        },
+        {
+            "type": "CheckBox",
+            "caption": "Enable sending of cyclic mails",
+            "name": "IntervalStatus"
+        },
+        {
+            "type": "RowLayout",
+            "items": [
+                {
+                    "type": "SelectInstance",
+                    "caption": "SMTP-Instance",
+                    "name": "SMTPInstance",
+                    "onChange": "CSV_UpdateInstanceError($id, $SMTPInstance);"
+                },
+                {
+                    "type": "Label",
+                    "name": "SMTPInstanceError",
+                    "caption": ""
+                }
+            ]
+        },
+        {
+            "type": "Select",
+            "caption": "Mail Interval",
+            "options": [
+                {
+                    "caption": "Hourly",
+                    "value": 0
+                },
+                {
+                    "caption": "Daily",
+                    "value": 1
+                },
+                {
+                    "caption": "Weekly",
+                    "value": 2
+                },
+                {
+                    "caption": "Monthly",
+                    "value": 3
+                }
+            ],
+            "name": "MailInterval",
+            "width": "700px"
+        },
+        {
+            "type": "SelectTime",
+            "caption": "Time of Mail",
+            "name": "MailTime"
+        },
+        {
+            "type": "Button",
+            "caption": "Send Mail Now",
+            "onClick": "CSV_SendMail($id);"
+        }
     ]
 }

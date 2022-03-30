@@ -1,7 +1,7 @@
 {
-    "id": "{0D5C5A1A-9051-0536-CBA2-4187031E26E3}",
+    "id": "{991D09CB-A8B9-413C-845B-E3F6D61C7854}",
     "name": "CSVZipExport",
-    "type": 3,
+    "type": 4,
     "vendor": "",
     "aliases": [
         "CSV-Zip-Export"
@@ -10,5 +10,5 @@
     "childRequirements": [],
     "implemented": [],
     "prefix": "CSV",
-    "url": "https://github.com/TillBrede/CSVZipExport/tree/master/CSVZipExport"
+    "url": "https://github.com/symcon/CSVZipExport"
 }

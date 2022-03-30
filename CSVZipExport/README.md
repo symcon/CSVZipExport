@@ -1,5 +1,5 @@
 # CSVZipExport
-Beschreibung des Moduls.
+Dieses Modul bietet die Möglichkeit, die aggregierten Werte einer Variable als CSV-Datei in einem ZIP-Archiv zu exportieren. 
 
 ### Inhaltsverzeichnis
 
@@ -18,10 +18,11 @@ Beschreibung des Moduls.
 * Auflistung aller geloggten Variablen
 * Zeitraum der Aggregierung frei wählbar
 * Aggregierungsstufe kann ausgewählt werden
+* Zyklisches erstellen und versenden eines Archivs
 
 ### 2. Voraussetzungen
 
-- IP-Symcon ab Version 5.0
+- IP-Symcon ab Version 5.5
 
 ### 3. Software-Installation
 
@@ -34,13 +35,20 @@ Beschreibung des Moduls.
 
 __Konfigurationsseite__:
 
-Name                  | Beschreibung
-----------------------| ------------------
-Geloggte Variablen    | Auswahl der Variable welche exportiert werden soll
-Start der Aggregation | Beginn des Aggregationszeitraums
-Ende der Aggregation  | Ende des Aggregationszeitraums
-Aggregationsstufe     | Stufe der Aggregation 
-Exportieren           | Die aggregierten Daten der Variable werden exportiert
+Name                         | Beschreibung
+---------------------------- | ------------------
+Filter                       | Filtriert die Auswahl der geloggten Variablen
+Geloggte Variablen           | Auswahl der Variable welche exportiert werden soll
+Start der Aggregation        | Beginn des Aggregationszeitraums
+Ende der Aggregation         | Ende des Aggregationszeitraums
+Aggregationsstufe            | Stufe der Aggregation 
+Exportieren                  | Die aggregierten Daten der Variable werden exportiert
+                             |
+Zyklisches senden aktivieren | Aktiviert die Versendung per E-Mail
+SMPT-Instanz                 | Auswahl der E-Mail-Instanz
+E-mail Intervall             | Intervall in welchem die E-Mail versendet wird
+Zeitpunkt der Mail           | Zeitpunkt zu welchem die E-Mail versendet werden soll 
+Jetzt Mail senden            | Sendet manuell eine Mail
 
 ### 5. Statusvariablen und Profile
 
@@ -58,9 +66,43 @@ Es werden keine zusätzlichen Profile erstellt.
 Dieses Modul bietet keinerlei Funktion im Webfront.
 
 ### 7. PHP-Befehlsreferenze
-
-`boolean CSV_Export(integer $InstanzID, integer $ArchiveVariable, integer $AggregationStage, integer $AggregationStart, integer $AggregationEnd);`
+`string CSV_Export(integer $InstanzID, integer $ArchiveVariable, integer $AggregationStage, integer $AggregationStart, integer $AggregationEnd);`
 Erzeugt ein Zip-Archiv basierend auf den gegebenen Parametern und liefert den relativen Pfad des Archivs als Rückgabewert.
 
 Beispiel:
-`CSV_BeispielFunktion(12345, 54321, 4, 2293574400, 3127161600);`
+`CSV_Export(12345, 54321, 4, 2293574400, 3127161600);`
+
+
+`string CSV_UserExport(integer $InstanzID, integer $ArchiveVariable, integer $AggregationStage, integer $AggregationStart, integer $AggregationEnd);`
+Erzeugt ein Zip-Archiv basierend auf den gegebenen Parametern und liefert den relativen Pfad des Archivs als Rückgabewert.
+
+Beispiel:
+`CSV_UserExport(12345, 54321, 4, 2293574400, 3127161600);`
+
+
+`void CSV_DeleteZip(integer $InstanzID);`
+Entfernt die generierte Datei.
+
+Beispiel:
+`CSV_DeleteZip(12345);`
+
+
+`void CSV_SendMail(integer $InstanzID);`
+Senden durch eine SMTP Instaz eine Mail mit einer erzeugten Zip-Datei
+
+Beispiel:
+`CSV_SendMail(12345);`
+
+
+`void CSV_UpdateFilter(integer $InstanzID, string $Filter);`
+Sucht die geloggten Variablen, welche mit dem Filter übereinstimmen und setzt diese als Option ins Auswahlfeld. 
+
+Beispiel:
+`CSV_UpdateFilter(12345, 'Zähler');`
+
+
+`void CSV_UpdateInstaceError(integer $InstanzID, int $SMPTInstanceID);`
+Prüft ob die SMPT Instanz valide ist. Ist dies nicht der Fall, wird es im Konfigurationsformular angezeigt. 
+
+Beispiel:
+`CSV_UpdateInstaceError(12345, 12336);`
