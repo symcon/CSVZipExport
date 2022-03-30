@@ -12,8 +12,19 @@
             "Weekly": "Wöchentlich",
             "Monthly": "Monatlich",
             "Yearly": "Jährlich",
-            "Export": "Exportieren",
-            "Exporting . . .": "Exportiere . . ."
+            "Download Export Now": "Jetzt Export herunterladen",
+            "Exporting . . .": "Exportiere . . .",
+            "Filter": "Filter",
+            "Apply Filter": "Filter anwenden",
+            "Mail Interval": "E-Mail Intervall",
+            "No valid SMTP-Instance selected": "Keine gültige SMTP-Instanz ausgewählt!",
+            "SMTP-Instance": "SMTP-Instanz",
+            "Time of Mail": "Zeitpunkt der Mail",
+            "Send Mail Now": "Jetzt Mail senden",
+            "Enable sending of cyclic mails": "Zyklisches senden aktivieren",
+            "Summary of %s (%s to %s)": "Zusammenfassung von %s (%s bis %s)",
+            "In the appendix you can find the created CSV-File.": "Im Anhang finden Sie die erstellte CSV-Datei.",
+            "The selected SMTP-Instance doesn't exist": "Die ausgewählte SMTP-Instanz existiert nicht"
         }
     }
 }

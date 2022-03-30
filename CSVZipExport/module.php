@@ -7,8 +7,23 @@ class CSVZipExport extends IPSModule
     {
         //Never delete this line!
         parent::Create();
+
+        //Timer
         $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('MailTimer', 0, 'CSV_SendMail($_IPS[\'TARGET\']);');
+
         $this->DeleteZip();
+
+        // Properties
+        $this->RegisterPropertyInteger('ArchiveVariable', 0);
+        $this->RegisterPropertyInteger('AggregationStage', 1);
+        $dateFormat = '{"year":%d,"month":%d,"day":%d,"hour":%d,"minute":%d,"second":%d}';
+        $this->RegisterPropertyString('AggregationStart', sprintf($dateFormat, date('Y'), date('m'), 1, 0, 0, 0));
+        $this->RegisterPropertyString('AggregationEnd', sprintf($dateFormat, date('Y'), date('m'), date('d'), 23, 59, 59));
+        $this->RegisterPropertyInteger('MailInterval', 0);
+        $this->RegisterPropertyInteger('SMTPInstance', 0);
+        $this->RegisterPropertyBoolean('IntervalStatus', false);
+        $this->RegisterPropertyString('MailTime', '{"hour":12,"minute":0,"second":0}');
     }
 
     public function Destroy()
@@ -21,17 +36,47 @@ class CSVZipExport extends IPSModule
     {
         //Never delete this line!
         parent::ApplyChanges();
+
+        $this->UpdateMailInterval();
     }
 
     public function GetConfigurationForm()
     {
         //Add options to form
         $jsonForm = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
-        $jsonForm['actions'][0]['options'] = $this->GetOptions();
+        $jsonForm['elements'][2]['value'] = [
+            'year'   => date('Y'),
+            'month'  => date('m'),
+            'day'    => 1,
+            'hour'   => 0,
+            'minute' => 0,
+            'second' => 0
+        ];
+        $jsonForm['elements'][3]['value'] = [
+            'year'   => date('Y'),
+            'month'  => date('m'),
+            'day'    => date('d'),
+            'hour'   => 23,
+            'minute' => 59,
+            'second' => 59
+        ];
+        $jsonForm['elements'][1]['options'] = $this->GetOptions();
         return json_encode($jsonForm);
     }
 
-    public function Export($ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd)
+    public function UserExport(int $ArchiveVariable, int $AggregationStage, string $AggregationStart, string $AggregationEnd)
+    {
+        $this->UpdateFormField('ExportBar', 'visible', true);
+        $relativePath = $this->Export($ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd);
+        sleep(1);
+        $this->UpdateFormField('ExportBar', 'visible', false);
+        //Reset ZipDeleteTimer
+        $this->SetTimerInterval('DeleteZipTimer', 1000 * 60 * 60);
+
+        return $relativePath;
+    }
+
+    public function Export(int $ArchiveVariable, int $AggregationStage, string $AggregationStart, string $AggregationEnd)
     {
         $archiveControlID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
         $startTimeStamp = 0;
@@ -53,9 +98,6 @@ class CSVZipExport extends IPSModule
                     break;
             }
 
-        //Display progressbar
-        $this->UpdateFormField('ExportBar', 'visible', true);
-
         //Generate zip with aggregated values
         $tempfile = IPS_GetKernelDir() . 'webfront' . DIRECTORY_SEPARATOR . 'user' . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
         $zip = new ZipArchive();
@@ -68,15 +110,9 @@ class CSVZipExport extends IPSModule
             $zip->addFromString(IPS_GetName($ArchiveVariable) . '.csv', $content);
             $zip->close();
         }
-        sleep(1);
-        //Hide progressbar
-        $this->UpdateFormField('ExportBar', 'visible', false);
 
-        //Reset ZipDeleteTimer
-        $this->SetTimerInterval('DeleteZipTimer', 1000 * 60 * 60);
-
-        //Start the download
-        return "/user/CSV_$this->InstanceID.zip";
+        //Returun
+        return DIRECTORY_SEPARATOR . 'user' . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
     }
 
     public function DeleteZip()
@@ -88,14 +124,54 @@ class CSVZipExport extends IPSModule
         $this->SetTimerInterval('DeleteZipTimer', 0);
     }
 
-    //Transfer json string to timestamp
-    private function TransferTime($JsonTime, bool $Start, bool $ignoreTime)
+    public function UpdateFilter(string $Filter)
     {
-        $Time = json_decode($JsonTime, true);
+        $options = $this->GetOptions($Filter);
+        if (count($options) == 0) {
+            $options = [[
+                'caption' => '-----------------------',
+                'value'   => 0
+            ]];
+        }
+        $this->UpdateFormField('ArchiveVariable', 'options', json_encode($options));
+        $this->UpdateFormField('ArchiveVariable', 'value', $options[0]['value']);
+    }
+
+    public function SendMail()
+    {
+        $archiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
+        $aggregationStage = $this->ReadPropertyInteger('AggregationStage');
+        $aggregationStart = $this->ReadPropertyString('AggregationStart');
+        $aggregationEnd = $this->ReadPropertyString('AggregationEnd');
+        $smtpInstanceID = $this->ReadPropertyInteger('SMTPInstance');
+        if (!$this->ValidateInstance($smtpInstanceID)) {
+            echo $this->Translate("The selected SMTP-Instance doesn't exist");
+            return;
+        }
+        $relativePath = $this->Export($archiveVariable, $aggregationStage, $aggregationStart, $aggregationEnd);
+        $subject = sprintf($this->Translate('Summary of %s (%s to %s)'), IPS_GetName($this->ReadPropertyInteger('ArchiveVariable')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationStart')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationEnd')));
+        SMTP_SendMailAttachment($smtpInstanceID, $subject, $this->Translate('In the appendix you can find the created CSV-File.'), IPS_GetKernelDir() . 'webfront' . $relativePath);
+        $this->DeleteZip();
+        $this->UpdateMailInterval();
+    }
+
+    public function UpdateInstanceError(int $SMTPInstanceID)
+    {
+        if ($this->ValidateInstance($SMTPInstanceID)) {
+            $this->UpdateFormField('SMTPInstanceError', 'caption', '');
+        } else {
+            $this->UpdateFormField('SMTPInstanceError', 'caption', $this->Translate('No valid SMTP-Instance selected'));
+        }
+    }
+
+    //Transfer json string to timestamp
+    private function TransferTime($jsonTime, bool $start, bool $ignoreTime)
+    {
+        $time = json_decode($jsonTime, true);
 
         $customTime = '';
         if ($ignoreTime) {
-            switch ($Start) {
+            switch ($start) {
                     case true:
                         $customTime = '00:00:00';
                         break;
@@ -104,26 +180,103 @@ class CSVZipExport extends IPSModule
                         break;
                 }
         } else {
-            $customTime = sprintf('%02d', $Time['hour']) . ':' . sprintf('%02d', $Time['minute']) . ':' . sprintf('%02d', $Time['second']);
+            $customTime = sprintf('%02d:%02d:%02d', $time['hour'], $time['minute'], $time['second']);
         }
 
-        $TimeStamp = strtotime(sprintf('%02d', $Time['day']) . '-' . sprintf('%02d', $Time['month']) . '-' . sprintf('%04d', $Time['year']) . ' ' . $customTime);
-        return $TimeStamp;
+        return strtotime(sprintf('%02d', $time['day']) . '-' . sprintf('%02d', $time['month']) . '-' . sprintf('%04d', $time['year']) . ' ' . $customTime);
+    }
+
+    private function ExtractTimestamp($property)
+    {
+        $timeProperty = json_decode($this->ReadPropertyString($property), true);
+        return mktime($timeProperty['hour'], $timeProperty['minute'], $timeProperty['second'], $timeProperty['month'], $timeProperty['day'], $timeProperty['year']);
     }
 
     //Get all logged variables as options
-    private function GetOptions()
+    private function GetOptions($filter = '')
     {
+        $mysqlSyncIDs = IPS_GetInstanceListByModuleID('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}');
+        $idents = [];
+        foreach ($mysqlSyncIDs as $mysqlSyncID) {
+            if (IPS_GetInstance($mysqlSyncID)['InstanceStatus'] == IS_ACTIVE) {
+                $idents = array_merge(SSQL_GetIdentList($mysqlSyncID));
+            }
+        }
+
+        $addIdentifier = function ($variableID) use ($idents)
+        {
+            foreach ($idents as $ident) {
+                if ($ident['variableid'] == $variableID) {
+                    return $ident['ident'];
+                }
+            }
+            return '';
+        };
+
         $archiveControlID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
         $aggregationVariables = AC_GetAggregationVariables($archiveControlID, false);
         $options = [];
         foreach ($aggregationVariables as $aggregationVariable) {
             if (IPS_VariableExists($aggregationVariable['VariableID'])) {
-                $jsonString['caption'] = IPS_GetName($aggregationVariable['VariableID']);
+                $jsonString['caption'] = $addIdentifier($aggregationVariable['VariableID']) . ' (' . IPS_GetName($aggregationVariable['VariableID']) . ')';
                 $jsonString['value'] = $aggregationVariable['VariableID'];
-                $options[] = $jsonString;
+
+                if ($filter == '' || strpos($jsonString['caption'], $filter) !== false) {
+                    $options[] = $jsonString;
+                }
             }
         }
+        usort($options, function ($a, $b)
+        {
+            return strcmp($a['caption'], $b['caption']);
+        });
         return $options;
+    }
+
+    private function ValidateInstance($smtpInstanceID)
+    {
+        if (IPS_InstanceExists($smtpInstanceID)) {
+            $this->SendDebug('SMTP-Instance', $this->Translate('No valid SMTP-Instance selected'), 0);
+            if (IPS_GetInstance($smtpInstanceID)['ModuleInfo']['ModuleID'] == '{375EAF21-35EF-4BC4-83B3-C780FD8BD88A}') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function UpdateMailInterval()
+    {
+        if ($this->ReadPropertyBoolean('IntervalStatus')) {
+            $mailInterval = $this->ReadPropertyInteger('MailInterval');
+            $time = json_decode($this->ReadPropertyString('MailTime'), true);
+            $mailTime = sprintf('%02d:%02d:%02d', $time['hour'], $time['minute'], $time['second']);
+            $mailDate = 0;
+            switch ($mailInterval) {
+                case 0: // Hourly
+                    $mailDate = strtotime(date('H', strtotime('+ 1 hour')) . ':' . $time['minute'] . ':' . $time['second']);
+                    $this->SendDebug('Next Dispatch (Hourly)', date('d.m.Y H:i:s', $mailDate), 0);
+                    break;
+
+                case 1: //Daily
+                    $mailDate = strtotime('tomorrow ' . $mailTime);
+                    $this->SendDebug('Next Dispatch (Daily)', date('d.m.Y H:i:s', $mailDate), 0);
+                    break;
+
+                case 2: // Weekly
+                    $mailDate = strtotime('next week ' . $mailTime);
+                    $this->SendDebug('Next Dispatch (Week)', date('d.m.Y H:i:s', $mailDate), 0);
+                    break;
+
+                case 3: //Monthly
+                    $mailDate = strtotime('first day of next month ' . $mailTime);
+                    $this->SendDebug('Next Dispatch (Month)', date('d.m.Y H:i:s', $mailDate), 0);
+                    break;
+            }
+            $difference = $mailDate - time();
+
+            $this->SetTimerInterval('MailTimer', $difference * 1000);
+        } else {
+            $this->SetTimerInterval('MailTimer', 0);
+        }
     }
 }
