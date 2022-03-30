@@ -27,7 +27,7 @@ Dieses Modul bietet die Möglichkeit, die aggregierten Werte einer Variable als 
 ### 3. Software-Installation
 
 * Über den Module Store das 'CSVZipExport'-Modul installieren.
-* Alternativ über das Module Control folgende URL hinzufügen `https://github.com/TillBrede/CSVZipExport/`
+* Alternativ über das Module Control folgende URL hinzufügen `https://github.com/symcon/CSVZipExport/`
 
 ### 4. Einrichten der Instanzen in IP-Symcon
 
