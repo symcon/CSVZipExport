@@ -60,7 +60,12 @@ class CSVZipExport extends IPSModule
             'minute' => 59,
             'second' => 59
         ];
-        $jsonForm['elements'][1]['options'] = $this->GetOptions();
+        if (IPS_ModuleExists('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}')) {
+            $jsonForm['elements'][0]['visible'] = true;
+            $jsonForm['elements'][1]['type'] = 'Select';
+            $jsonForm['elements'][1]['options'] = $this->GetOptions();
+        }
+
         return json_encode($jsonForm);
     }
 
