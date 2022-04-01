@@ -74,13 +74,15 @@ class CSVZipExport extends IPSModule
 
     public function UserExport(int $ArchiveVariable, int $AggregationStage, string $AggregationStart, string $AggregationEnd)
     {
+        if (!IPS_VariableExists($ArchiveVariable)) {
+            return 'javascript:alert("' . $this->Translate('Variable is not selected') . ' ");';
+        }
         $this->UpdateFormField('ExportBar', 'visible', true);
         $relativePath = $this->Export($ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd);
         sleep(1);
         $this->UpdateFormField('ExportBar', 'visible', false);
         //Reset ZipDeleteTimer
         $this->SetTimerInterval('DeleteZipTimer', 1000 * 60 * 60);
-
         return $relativePath;
     }
 
@@ -148,6 +150,10 @@ class CSVZipExport extends IPSModule
     public function SendMail()
     {
         $archiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
+        if (!IPS_VariableExists($archiveVariable)) {
+            echo $this->Translate('Variable is not selected');
+            return;
+        }
         $aggregationStage = $this->ReadPropertyInteger('AggregationStage');
         $aggregationStart = $this->ReadPropertyString('AggregationStart');
         $aggregationEnd = $this->ReadPropertyString('AggregationEnd');
