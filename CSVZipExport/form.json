@@ -7,21 +7,23 @@
                     "type": "ValidationTextBox",
                     "caption": "Filter",
                     "name": "Filter",
-                    "width": "500px"
+                    "width": "550px"
                 },
                 {
                     "type": "Button",
                     "caption": "Apply Filter",
                     "onClick": "CSV_UpdateFilter($id, $Filter);"
                 }
-            ]
+            ],
+            "visible": false
         },
         {
-            "type": "Select",
+            "type": "SelectVariable",
             "caption": "Logged Variables",
             "options": [],
             "name": "ArchiveVariable",
-            "width": "700px"
+            "width": "700px",
+            "requiredLogging": 1
         },
         {
             "type": "SelectDateTime",
@@ -130,8 +132,7 @@
                     "value": 3
                 }
             ],
-            "name": "MailInterval",
-            "width": "700px"
+            "name": "MailInterval"
         },
         {
             "type": "SelectTime",

@@ -60,19 +60,29 @@ class CSVZipExport extends IPSModule
             'minute' => 59,
             'second' => 59
         ];
-        $jsonForm['elements'][1]['options'] = $this->GetOptions();
+
+        //If the module "SyncMySQL" is install, get other options
+        if (IPS_ModuleExists('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}')) {
+            $jsonForm['elements'][0]['visible'] = true;
+            $jsonForm['elements'][1]['type'] = 'Select';
+            $jsonForm['elements'][1]['options'] = $this->GetOptions();
+            unset($jsonForm['elements'][1]['requiredLogging']);
+        }
+
         return json_encode($jsonForm);
     }
 
     public function UserExport(int $ArchiveVariable, int $AggregationStage, string $AggregationStart, string $AggregationEnd)
     {
+        if (!IPS_VariableExists($ArchiveVariable)) {
+            return 'javascript:alert("' . $this->Translate('Variable is not selected') . ' ");';
+        }
         $this->UpdateFormField('ExportBar', 'visible', true);
         $relativePath = $this->Export($ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd);
         sleep(1);
         $this->UpdateFormField('ExportBar', 'visible', false);
         //Reset ZipDeleteTimer
         $this->SetTimerInterval('DeleteZipTimer', 1000 * 60 * 60);
-
         return $relativePath;
     }
 
@@ -140,6 +150,10 @@ class CSVZipExport extends IPSModule
     public function SendMail()
     {
         $archiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
+        if (!IPS_VariableExists($archiveVariable)) {
+            echo $this->Translate('Variable is not selected');
+            return;
+        }
         $aggregationStage = $this->ReadPropertyInteger('AggregationStage');
         $aggregationStart = $this->ReadPropertyString('AggregationStart');
         $aggregationEnd = $this->ReadPropertyString('AggregationEnd');
