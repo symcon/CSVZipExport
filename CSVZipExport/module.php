@@ -60,10 +60,13 @@ class CSVZipExport extends IPSModule
             'minute' => 59,
             'second' => 59
         ];
+
+        //If the module "SyncMySQL" is install, get other options
         if (IPS_ModuleExists('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}')) {
             $jsonForm['elements'][0]['visible'] = true;
             $jsonForm['elements'][1]['type'] = 'Select';
             $jsonForm['elements'][1]['options'] = $this->GetOptions();
+            unset($jsonForm['elements'][1]['requiredLogging']);
         }
 
         return json_encode($jsonForm);

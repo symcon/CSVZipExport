@@ -132,8 +132,7 @@
                     "value": 3
                 }
             ],
-            "name": "MailInterval",
-            "width": "700px"
+            "name": "MailInterval"
         },
         {
             "type": "SelectTime",
