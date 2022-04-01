@@ -24,7 +24,8 @@
             "Enable sending of cyclic mails": "Zyklisches senden aktivieren",
             "Summary of %s (%s to %s)": "Zusammenfassung von %s (%s bis %s)",
             "In the appendix you can find the created CSV-File.": "Im Anhang finden Sie die erstellte CSV-Datei.",
-            "The selected SMTP-Instance doesn't exist": "Die ausgewählte SMTP-Instanz existiert nicht"
+            "The selected SMTP-Instance doesn't exist": "Die ausgewählte SMTP-Instanz existiert nicht",
+            "Variable is not selected": "Variable ist nicht ausgewählt"
         }
     }
 }
