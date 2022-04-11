@@ -1,8 +1,16 @@
 <?php
 
 declare(strict_types=1);
-class CSVZipExport extends IPSModule
+
+include_once __DIR__ . '/../libs/WebHookModule.php';
+
+class CSVZipExport extends WebHookModule
 {
+    public function __construct($InstanceID)
+    {
+        parent::__construct($InstanceID, 'zip/' . $InstanceID);
+    }
+
     public function Create()
     {
         //Never delete this line!
@@ -44,22 +52,6 @@ class CSVZipExport extends IPSModule
     {
         //Add options to form
         $jsonForm = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
-        $jsonForm['elements'][2]['value'] = [
-            'year'   => date('Y'),
-            'month'  => date('m'),
-            'day'    => 1,
-            'hour'   => 0,
-            'minute' => 0,
-            'second' => 0
-        ];
-        $jsonForm['elements'][3]['value'] = [
-            'year'   => date('Y'),
-            'month'  => date('m'),
-            'day'    => date('d'),
-            'hour'   => 23,
-            'minute' => 59,
-            'second' => 59
-        ];
         $jsonForm['elements'][1]['options'] = $this->GetOptions();
         return json_encode($jsonForm);
     }
@@ -99,7 +91,7 @@ class CSVZipExport extends IPSModule
             }
 
         //Generate zip with aggregated values
-        $tempfile = IPS_GetKernelDir() . 'webfront' . DIRECTORY_SEPARATOR . 'user' . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
         $zip = new ZipArchive();
         if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
             $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, 0);
@@ -111,13 +103,13 @@ class CSVZipExport extends IPSModule
             $zip->close();
         }
 
-        //Returun
-        return DIRECTORY_SEPARATOR . 'user' . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        //Return
+        return '/hook/zip/' . $this->InstanceID;
     }
 
     public function DeleteZip()
     {
-        $tempfile = IPS_GetKernelDir() . 'webfront' . DIRECTORY_SEPARATOR . 'user' . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
         if (file_exists($tempfile)) {
             unlink($tempfile);
         }
@@ -162,6 +154,17 @@ class CSVZipExport extends IPSModule
         } else {
             $this->UpdateFormField('SMTPInstanceError', 'caption', $this->Translate('No valid SMTP-Instance selected'));
         }
+    }
+
+    /**
+     * This function will be called by the hook control. Visibility should be protected!
+     */
+    protected function ProcessHookData()
+    {
+        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        header('Content-Type: application/zip; charset=utf-8;');
+        header('Content-Length:' . filesize($path));
+        readfile($path);
     }
 
     //Transfer json string to timestamp
