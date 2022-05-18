@@ -45,7 +45,7 @@ Aggregationsstufe            | Stufe der Aggregation
 Exportieren                  | Die aggregierten Daten der Variable werden exportiert
 Zyklisches senden aktivieren | Aktiviert die Versendung per E-Mail
 SMPT-Instanz                 | Auswahl der E-Mail-Instanz
-E-mail Intervall             | Intervall in welchem die E-Mail versendet wird
+E-Mail Intervall             | Intervall in welchem die E-Mail versendet wird. Bei "Wöchtenlich" wird die E-Mail am Montag versendet und bei "Monatlich" wird die E-Mail jeweils am 1. des Monats versendet zum jeweilig gewählten Zeitpunkt
 Zeitpunkt der Mail           | Zeitpunkt zu welchem die E-Mail versendet werden soll 
 Jetzt Mail senden            | Sendet manuell eine Mail
 
