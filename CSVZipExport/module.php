@@ -88,6 +88,7 @@ class CSVZipExport extends WebHookModule
                 case 0: //Hourly
                 case 5: //1-Minute
                 case 6: //5-Minute
+                case 7: //raw datas
                     $startTimeStamp = $this->TransferTime($AggregationStart, true, false);
                     $endTimeStamp = $this->TransferTime($AggregationEnd, false, false);
                     break;
@@ -104,10 +105,17 @@ class CSVZipExport extends WebHookModule
         $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
         $zip = new ZipArchive();
         if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
-            $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, 0);
             $content = '';
-            for ($j = 0; $j < count($loggedValues); $j++) {
-                $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Avg'] . "\n";
+            if ($AggregationStage != 7) {
+                $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, 0);
+                for ($j = 0; $j < count($loggedValues); $j++) {
+                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Avg'] . "\n";
+                }
+            } else {
+                $loggedValues = AC_GetLoggedValues($archiveControlID, $ArchiveVariable, $startTimeStamp, $endTimeStamp, 0);
+                for ($j = 0; $j < count($loggedValues); $j++) {
+                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Value'] . "\n";
+                }
             }
             $zip->addFromString(IPS_GetName($ArchiveVariable) . '.csv', $content);
             $zip->close();
