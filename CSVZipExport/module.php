@@ -75,6 +75,9 @@ class CSVZipExport extends WebHookModule
         $this->UpdateFormField('ExportBar', 'visible', false);
         //Reset ZipDeleteTimer
         $this->SetTimerInterval('DeleteZipTimer', 1000 * 60 * 60);
+
+        $this->SendDebug('relativer Pfad', $relativePath, 0);
+
         return $relativePath;
     }
 
@@ -102,7 +105,9 @@ class CSVZipExport extends WebHookModule
             }
 
         //Generate zip with aggregated values
-        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        $name = preg_replace('/[\"\<\>\?\|\\/\:\/]/', '_', IPS_GetName($ArchiveVariable));
+        $this->SendDebug('name', $name, 0);
+        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $ArchiveVariable . '_' . $name . '.zip';
         $zip = new ZipArchive();
         if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
             $content = '';
@@ -117,7 +122,7 @@ class CSVZipExport extends WebHookModule
                     $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Value'] . "\n";
                 }
             }
-            $zip->addFromString(IPS_GetName($ArchiveVariable) . '.csv', $content);
+            $zip->addFromString($ArchiveVariable . '_' . $name . '.csv', $content);
             $zip->close();
         }
 
@@ -127,7 +132,7 @@ class CSVZipExport extends WebHookModule
 
     public function DeleteZip()
     {
-        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $ArchiveVariable . '_' . preg_replace('/[\"\<\>\?\|\\/\:\/]/', '_', IPS_GetName($ArchiveVariable)) . '.zip';
         if (file_exists($tempfile)) {
             unlink($tempfile);
         }
@@ -183,7 +188,9 @@ class CSVZipExport extends WebHookModule
      */
     protected function ProcessHookData()
     {
-        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
+        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $ArchiveVariable . '_' . preg_replace('/[\"\<\>\?\|\\/\:\/]/', '_', IPS_GetName($ArchiveVariable)) . '.zip';
+        header('Content-Disposition: attachment; filename="' . 'CSV_' . $ArchiveVariable . '_' . preg_replace('/[\"\<\>\?\|\\/\:\/]/', '_', IPS_GetName($ArchiveVariable)) . '.zip');
         header('Content-Type: application/zip; charset=utf-8;');
         header('Content-Length:' . filesize($path));
         readfile($path);
