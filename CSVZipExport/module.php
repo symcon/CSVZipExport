@@ -16,12 +16,6 @@ class CSVZipExport extends WebHookModule
         //Never delete this line!
         parent::Create();
 
-        //Timer
-        $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
-        $this->RegisterTimer('MailTimer', 0, 'CSV_SendMail($_IPS[\'TARGET\']);');
-
-        $this->DeleteZip();
-
         // Properties
         $this->RegisterPropertyInteger('ArchiveVariable', 0);
         $this->RegisterPropertyInteger('AggregationStage', 1);
@@ -32,6 +26,12 @@ class CSVZipExport extends WebHookModule
         $this->RegisterPropertyInteger('SMTPInstance', 0);
         $this->RegisterPropertyBoolean('IntervalStatus', false);
         $this->RegisterPropertyString('MailTime', '{"hour":12,"minute":0,"second":0}');
+
+        //Timer
+        $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('MailTimer', 0, 'CSV_SendMail($_IPS[\'TARGET\']);');
+
+        $this->DeleteZip();
     }
 
     public function Destroy()
