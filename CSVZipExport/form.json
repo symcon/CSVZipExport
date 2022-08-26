@@ -42,7 +42,7 @@
             "caption": "Aggregation Stage",
             "options": [
                 {
-                    "caption": "Rohdaten",
+                    "caption": "Raw-Data",
                     "value": 7
                 },
                 {
