@@ -75,9 +75,7 @@ class CSVZipExport extends WebHookModule
         $this->UpdateFormField('ExportBar', 'visible', false);
         //Reset ZipDeleteTimer
         $this->SetTimerInterval('DeleteZipTimer', 1000 * 60 * 60);
-
-        $this->SendDebug('relativer Pfad', $relativePath, 0);
-
+        
         return $relativePath;
     }
 
