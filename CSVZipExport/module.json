@@ -1,7 +1,7 @@
 {
     "id": "{991D09CB-A8B9-413C-845B-E3F6D61C7854}",
     "name": "CSVZipExport",
-    "type": 4,
+    "type": 3,
     "vendor": "",
     "aliases": [
         "CSV-Zip-Export"

@@ -42,6 +42,10 @@
             "caption": "Aggregation Stage",
             "options": [
                 {
+                    "caption": "Raw-Data",
+                    "value": 7
+                },
+                {
                     "caption": "1-Minute",
                     "value": 6
                 },

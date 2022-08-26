@@ -16,12 +16,6 @@ class CSVZipExport extends WebHookModule
         //Never delete this line!
         parent::Create();
 
-        //Timer
-        $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
-        $this->RegisterTimer('MailTimer', 0, 'CSV_SendMail($_IPS[\'TARGET\']);');
-
-        $this->DeleteZip();
-
         // Properties
         $this->RegisterPropertyInteger('ArchiveVariable', 0);
         $this->RegisterPropertyInteger('AggregationStage', 1);
@@ -32,6 +26,12 @@ class CSVZipExport extends WebHookModule
         $this->RegisterPropertyInteger('SMTPInstance', 0);
         $this->RegisterPropertyBoolean('IntervalStatus', false);
         $this->RegisterPropertyString('MailTime', '{"hour":12,"minute":0,"second":0}');
+
+        //Timer
+        $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('MailTimer', 0, 'CSV_SendMail($_IPS[\'TARGET\']);');
+
+        $this->DeleteZip();
     }
 
     public function Destroy()
@@ -53,7 +53,7 @@ class CSVZipExport extends WebHookModule
         //Add options to form
         $jsonForm = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
 
-        //If the module "SyncMySQL" is install, get other options
+        //If the module "SyncMySQL" is installed, get other options
         if (IPS_ModuleExists('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}')) {
             $jsonForm['elements'][0]['visible'] = true;
             $jsonForm['elements'][1]['type'] = 'Select';
@@ -75,6 +75,7 @@ class CSVZipExport extends WebHookModule
         $this->UpdateFormField('ExportBar', 'visible', false);
         //Reset ZipDeleteTimer
         $this->SetTimerInterval('DeleteZipTimer', 1000 * 60 * 60);
+
         return $relativePath;
     }
 
@@ -88,6 +89,7 @@ class CSVZipExport extends WebHookModule
                 case 0: //Hourly
                 case 5: //1-Minute
                 case 6: //5-Minute
+                case 7: //raw datas
                     $startTimeStamp = $this->TransferTime($AggregationStart, true, false);
                     $endTimeStamp = $this->TransferTime($AggregationEnd, false, false);
                     break;
@@ -101,15 +103,22 @@ class CSVZipExport extends WebHookModule
             }
 
         //Generate zip with aggregated values
-        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
         $zip = new ZipArchive();
         if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
-            $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, 0);
             $content = '';
-            for ($j = 0; $j < count($loggedValues); $j++) {
-                $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Avg'] . "\n";
+            if ($AggregationStage != 7) {
+                $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, 0);
+                for ($j = 0; $j < count($loggedValues); $j++) {
+                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Avg'] . "\n";
+                }
+            } else {
+                $loggedValues = AC_GetLoggedValues($archiveControlID, $ArchiveVariable, $startTimeStamp, $endTimeStamp, 0);
+                for ($j = 0; $j < count($loggedValues); $j++) {
+                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Value'] . "\n";
+                }
             }
-            $zip->addFromString(IPS_GetName($ArchiveVariable) . '.csv', $content);
+            $zip->addFromString($this->GenerateFileName($ArchiveVariable, '.csv'), $content);
             $zip->close();
         }
 
@@ -119,7 +128,8 @@ class CSVZipExport extends WebHookModule
 
     public function DeleteZip()
     {
-        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
+        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->$this->GenerateFileName($ArchiveVariable);
         if (file_exists($tempfile)) {
             unlink($tempfile);
         }
@@ -175,10 +185,17 @@ class CSVZipExport extends WebHookModule
      */
     protected function ProcessHookData()
     {
-        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'CSV_' . $this->InstanceID . '.zip';
+        $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
+        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
+        header('Content-Disposition: attachment; filename="' . $this->GenerateFileName($ArchiveVariable) . '"');
         header('Content-Type: application/zip; charset=utf-8;');
         header('Content-Length:' . filesize($path));
         readfile($path);
+    }
+
+    private function GenerateFileName($variableID, $extension = '.zip')
+    {
+        return $variableID . '_' . preg_replace('/[\"\<\>\?\|\\/\:\/]/', '_', IPS_GetName($variableID)) . $extension;
     }
 
     //Transfer json string to timestamp
