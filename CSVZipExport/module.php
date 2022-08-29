@@ -129,7 +129,7 @@ class CSVZipExport extends WebHookModule
     public function DeleteZip()
     {
         $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
-        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->$this->GenerateFileName($ArchiveVariable);
+        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
         if (file_exists($tempfile)) {
             unlink($tempfile);
         }
