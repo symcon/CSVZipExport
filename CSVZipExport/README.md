@@ -72,20 +72,6 @@ Beispiel:
 `CSV_Export(12345, 54321, 4, 2293574400, 3127161600);`
 
 
-`string CSV_UserExport(integer $InstanzID, integer $ArchiveVariable, integer $AggregationStage, integer $AggregationStart, integer $AggregationEnd);`
-Erzeugt ein Zip-Archiv basierend auf den gegebenen Parametern und liefert den relativen Pfad des Archivs als Rückgabewert.
-
-Beispiel:
-`CSV_UserExport(12345, 54321, 4, 2293574400, 3127161600);`
-
-
-`void CSV_DeleteZip(integer $InstanzID);`
-Entfernt die generierte Datei.
-
-Beispiel:
-`CSV_DeleteZip(12345);`
-
-
 `void CSV_SendMail(integer $InstanzID);`
 Senden durch eine SMTP Instaz eine Mail mit einer erzeugten Zip-Datei
 
@@ -93,15 +79,8 @@ Beispiel:
 `CSV_SendMail(12345);`
 
 
-`void CSV_UpdateFilter(integer $InstanzID, string $Filter);`
-Sucht die geloggten Variablen, welche mit dem Filter übereinstimmen und setzt diese als Option ins Auswahlfeld. 
+`void CSV_DeleteZip(integer $InstanzID);`
+Entfernt die generierte Datei.
 
 Beispiel:
-`CSV_UpdateFilter(12345, 'Zähler');`
-
-
-`void CSV_UpdateInstaceError(integer $InstanzID, int $SMPTInstanceID);`
-Prüft ob die SMPT Instanz valide ist. Ist dies nicht der Fall, wird es im Konfigurationsformular angezeigt. 
-
-Beispiel:
-`CSV_UpdateInstaceError(12345, 12336);`
+`CSV_DeleteZip(12345);`
