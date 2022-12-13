@@ -72,6 +72,13 @@ Beispiel:
 `CSV_Export(12345, 54321, 4, 2293574400, 3127161600);`
 
 
+`void CSV_SendMail(integer $InstanzID);`
+Senden durch eine SMTP Instaz eine Mail mit einer erzeugten Zip-Datei
+
+Beispiel:
+`CSV_SendMail(12345);`
+
+
 `void CSV_DeleteZip(integer $InstanzID);`
 Entfernt die generierte Datei.
 
