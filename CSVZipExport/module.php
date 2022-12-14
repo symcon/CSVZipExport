@@ -70,7 +70,7 @@ class CSVZipExport extends WebHookModule
             return 'javascript:alert("' . $this->Translate('Variable is not selected') . ' ");';
         }
         $this->UpdateFormField('ExportBar', 'visible', true);
-        ini_set('memory_limit','256M');
+        ini_set('memory_limit', '256M');
         $relativePath = $this->Export($ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd);
         sleep(1);
         $this->UpdateFormField('ExportBar', 'visible', false);
