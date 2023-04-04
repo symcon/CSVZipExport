@@ -166,8 +166,9 @@ class CSVZipExport extends WebHookModule
             return;
         }
         $relativePath = $this->Export($archiveVariable, $aggregationStage, $aggregationStart, $aggregationEnd);
+        $filePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->ReadPropertyInteger('ArchiveVariable'));
         $subject = sprintf($this->Translate('Summary of %s (%s to %s)'), IPS_GetName($this->ReadPropertyInteger('ArchiveVariable')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationStart')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationEnd')));
-        SMTP_SendMailAttachment($smtpInstanceID, $subject, $this->Translate('In the appendix you can find the created CSV-File.'), IPS_GetKernelDir() . 'webfront' . $relativePath);
+        SMTP_SendMailAttachment($smtpInstanceID, $subject, $this->Translate('In the appendix you can find the created CSV-File.'), $filePath);
         $this->DeleteZip();
         $this->UpdateMailInterval();
     }
