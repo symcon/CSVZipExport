@@ -71,7 +71,11 @@ class CSVZipExport extends WebHookModule
         }
         $this->UpdateFormField('ExportBar', 'visible', true);
         ini_set('memory_limit', '256M');
-        $relativePath = $this->Export($ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd);
+        $timeStamp = $this->validTimestamps(true, $AggregationStart, $AggregationEnd);
+        $startTimeStamp = $timeStamp[0];
+        $endTimeStamp = $timeStamp[1];
+
+        $relativePath = $this->Export($ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp);
         sleep(1);
         $this->UpdateFormField('ExportBar', 'visible', false);
         //Reset ZipDeleteTimer
@@ -80,29 +84,10 @@ class CSVZipExport extends WebHookModule
         return $relativePath;
     }
 
-    public function Export(int $ArchiveVariable, int $AggregationStage, string $AggregationStart, string $AggregationEnd)
+    public function Export(int $ArchiveVariable, int $AggregationStage, int $startTimeStamp, int $endTimeStamp)
     {
         $archiveControlID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
-        $startTimeStamp = 0;
-        $endTimeStamp = 0;
-
-        switch ($AggregationStage) {
-                case 0: //Hourly
-                case 5: //1-Minute
-                case 6: //5-Minute
-                case 7: //raw datas
-                    $startTimeStamp = $this->TransferTime($AggregationStart, true, false);
-                    $endTimeStamp = $this->TransferTime($AggregationEnd, false, false);
-                    break;
-                case 1: //Daily
-                case 2: //Weekly
-                case 3: //Monthly
-                case 4: //Yearly
-                    $startTimeStamp = $this->TransferTime($AggregationStart, true, true);
-                    $endTimeStamp = $this->TransferTime($AggregationEnd, false, true);
-                    break;
-            }
-
+        
         //Generate zip with aggregated values
         $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
         $zip = new ZipArchive();
@@ -137,7 +122,7 @@ class CSVZipExport extends WebHookModule
         $this->SetTimerInterval('DeleteZipTimer', 0);
     }
 
-    public function UpdateFilter(string $Filter)
+    public function UpdateFilter(string $Filter) //For SyncMySQL-Module
     {
         $options = $this->GetOptions($Filter);
         if (count($options) == 0) {
@@ -158,14 +143,16 @@ class CSVZipExport extends WebHookModule
             return;
         }
         $aggregationStage = $this->ReadPropertyInteger('AggregationStage');
-        $aggregationStart = $this->ReadPropertyString('AggregationStart');
-        $aggregationEnd = $this->ReadPropertyString('AggregationEnd');
+        $timeStamp = $this->validTimestamps(false, $this->ReadPropertyString('AggregationStart'), $this->ReadPropertyString('AggregationEnd'));
+        $startTimeStamp = $timeStamp[0];
+        $endTimeStamp = $timeStamp[1];
+
         $smtpInstanceID = $this->ReadPropertyInteger('SMTPInstance');
         if (!$this->ValidateInstance($smtpInstanceID)) {
             echo $this->Translate("The selected SMTP-Instance doesn't exist");
             return;
         }
-        $relativePath = $this->Export($archiveVariable, $aggregationStage, $aggregationStart, $aggregationEnd);
+        $relativePath = $this->Export($archiveVariable, $aggregationStage, $startTimeStamp, $endTimeStamp);
         $filePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->ReadPropertyInteger('ArchiveVariable'));
         $subject = sprintf($this->Translate('Summary of %s (%s to %s)'), IPS_GetName($this->ReadPropertyInteger('ArchiveVariable')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationStart')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationEnd')));
         SMTP_SendMailAttachment($smtpInstanceID, $subject, $this->Translate('In the appendix you can find the created CSV-File.'), $filePath);
@@ -195,31 +182,49 @@ class CSVZipExport extends WebHookModule
         readfile($path);
     }
 
+    private function validTimestamps(bool $type, string $AggregationStart, string $AggregationEnd)
+    {
+        $jsonToTimestamp = function ($time)
+        {
+            $time = json_decode($time, true);
+            $time = strtotime(sprintf('%02d', $time['day']) . '-' . sprintf('%02d', $time['month']) . '-' . sprintf('%04d', $time['year']) . ' ' . $time['hour'] . ':' . $time['minute'] . ':' . $time['second']);
+
+            return $time;
+        };
+
+        if ($type) { //UserExport
+            $startTimeStamp = $jsonToTimestamp($AggregationStart);
+            $endTimeStamp = $jsonToTimestamp($AggregationEnd);
+        } else { //SendMail
+            switch ($this->ReadPropertyInteger('MailInterval')) {
+                case 0: //Hourly
+                    $startTimeStamp = time() - 3600 -(time() % 3600); //If it is 9:54, startTimeStamp is 8:00 
+                    $endTimeStamp = time() - (time() % 3600);//If it is 9:54, endTimeStamp is 9:00 
+                    break;
+                case 1: //Daily
+                    $startTimeStamp = strtotime('yesterday');
+                    $endTimeStamp = strtotime('today');
+                    break;
+                case 2: //Weekly
+                    $endTimeStamp = strtotime('previous monday');
+                    $startTimeStamp = strtotime('-1 week', $endTimeStamp);
+                    break;
+                case 3: //Monthly
+                    $startTimeStamp = strtotime('first day of last month 00:00:00');
+                    $endTimeStamp = strtotime('first day of this month 00:00:00');
+                    break;
+                case 4: //Yearly
+                    $startTimeStamp = strtotime('first day of January last year 00:00:00');
+                    $endTimeStamp = strtotime('first day of January this year 00:00:00');
+                    break;
+            }
+        }
+        return [$startTimeStamp, $endTimeStamp];
+    }
+
     private function GenerateFileName($variableID, $extension = '.zip')
     {
         return $variableID . '_' . preg_replace('/[\"\<\>\?\|\\/\:\/]/', '_', IPS_GetName($variableID)) . $extension;
-    }
-
-    //Transfer json string to timestamp
-    private function TransferTime($jsonTime, bool $start, bool $ignoreTime)
-    {
-        $time = json_decode($jsonTime, true);
-
-        $customTime = '';
-        if ($ignoreTime) {
-            switch ($start) {
-                    case true:
-                        $customTime = '00:00:00';
-                        break;
-                    case false:
-                        $customTime = '23:59:59';
-                        break;
-                }
-        } else {
-            $customTime = sprintf('%02d:%02d:%02d', $time['hour'], $time['minute'], $time['second']);
-        }
-
-        return strtotime(sprintf('%02d', $time['day']) . '-' . sprintf('%02d', $time['month']) . '-' . sprintf('%04d', $time['year']) . ' ' . $customTime);
     }
 
     private function ExtractTimestamp($property)
@@ -228,7 +233,7 @@ class CSVZipExport extends WebHookModule
         return mktime($timeProperty['hour'], $timeProperty['minute'], $timeProperty['second'], $timeProperty['month'], $timeProperty['day'], $timeProperty['year']);
     }
 
-    //Get all logged variables as options
+    //Get all logged variables as options if the syncMySql-Module is available
     private function GetOptions($filter = '')
     {
         $mysqlSyncIDs = IPS_GetInstanceListByModuleID('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}');

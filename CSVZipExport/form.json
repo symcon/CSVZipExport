@@ -134,6 +134,10 @@
                 {
                     "caption": "Monthly",
                     "value": 3
+                },
+                {
+                    "caption": "Yearly",
+                    "value": 4
                 }
             ],
             "name": "MailInterval"
