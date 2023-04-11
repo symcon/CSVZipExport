@@ -67,7 +67,9 @@ class CSVZipExport extends WebHookModule
     public function UserExport(int $ArchiveVariable, int $AggregationStage, string $AggregationStart, string $AggregationEnd)
     {
         if (!IPS_VariableExists($ArchiveVariable)) {
-            return 'javascript:alert("' . $this->Translate('Variable is not selected') . ' ");';
+            $this->SetStatus(201); //for the instance
+            echo  $this->Translate('Variable is not selected');
+            return 'javascript:alert("' . $this->Translate('Variable is not selected') . ' ");'; //for the Browser
         }
         $this->UpdateFormField('ExportBar', 'visible', true);
         ini_set('memory_limit', '256M');
@@ -76,6 +78,9 @@ class CSVZipExport extends WebHookModule
         $endTimeStamp = $timeStamp[1];
 
         $relativePath = $this->Export($ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp);
+        if ($relativePath !== false) {
+            $this->SetStatus(102);
+        }
         sleep(1);
         $this->UpdateFormField('ExportBar', 'visible', false);
         //Reset ZipDeleteTimer
@@ -87,11 +92,10 @@ class CSVZipExport extends WebHookModule
     public function Export(int $ArchiveVariable, int $AggregationStage, int $startTimeStamp, int $endTimeStamp)
     {
         $archiveControlID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
-        
         //Generate zip with aggregated values
-        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
+        $tmpfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
         $zip = new ZipArchive();
-        if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+        if ($zip->open($tmpfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
             $content = '';
             if ($AggregationStage != 7) {
                 $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, 0);
@@ -115,9 +119,9 @@ class CSVZipExport extends WebHookModule
     public function DeleteZip()
     {
         $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
-        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
-        if (file_exists($tempfile)) {
-            unlink($tempfile);
+        $tmpfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
+        if (file_exists($tmpfile)) {
+            unlink($tmpfile);
         }
         $this->SetTimerInterval('DeleteZipTimer', 0);
     }
@@ -140,6 +144,7 @@ class CSVZipExport extends WebHookModule
         $archiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
         if (!IPS_VariableExists($archiveVariable)) {
             echo $this->Translate('Variable is not selected');
+            $this->SetStatus(201);
             return;
         }
         $aggregationStage = $this->ReadPropertyInteger('AggregationStage');
@@ -148,25 +153,28 @@ class CSVZipExport extends WebHookModule
         $endTimeStamp = $timeStamp[1];
 
         $smtpInstanceID = $this->ReadPropertyInteger('SMTPInstance');
-        if (!$this->ValidateInstance($smtpInstanceID)) {
-            echo $this->Translate("The selected SMTP-Instance doesn't exist");
+
+        if (!@IPS_InstanceExists($smtpInstanceID)) {
+            $this->SendDebug('SMTP-Instance', $this->Translate('No valid SMTP-Instance selected'), 0);
+            $this->SetStatus(202);
+            if (@IPS_GetInstance($smtpInstanceID)['ModuleInfo']['ModuleID'] != '{375EAF21-35EF-4BC4-83B3-C780FD8BD88A}') {
+                echo $this->Translate("The selected SMTP-Instance doesn't exist");
+                $this->SetStatus(203);
+            }
             return;
         }
+
         $relativePath = $this->Export($archiveVariable, $aggregationStage, $startTimeStamp, $endTimeStamp);
         $filePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->ReadPropertyInteger('ArchiveVariable'));
+        if ($filePath !== false) {
+            $this->SetStatus(102);
+        }
         $subject = sprintf($this->Translate('Summary of %s (%s to %s)'), IPS_GetName($this->ReadPropertyInteger('ArchiveVariable')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationStart')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationEnd')));
         SMTP_SendMailAttachment($smtpInstanceID, $subject, $this->Translate('In the appendix you can find the created CSV-File.'), $filePath);
+
+        //Clean up
         $this->DeleteZip();
         $this->UpdateMailInterval();
-    }
-
-    public function UpdateInstanceError(int $SMTPInstanceID)
-    {
-        if ($this->ValidateInstance($SMTPInstanceID)) {
-            $this->UpdateFormField('SMTPInstanceError', 'caption', '');
-        } else {
-            $this->UpdateFormField('SMTPInstanceError', 'caption', $this->Translate('No valid SMTP-Instance selected'));
-        }
     }
 
     /**
@@ -198,8 +206,8 @@ class CSVZipExport extends WebHookModule
         } else { //SendMail
             switch ($this->ReadPropertyInteger('MailInterval')) {
                 case 0: //Hourly
-                    $startTimeStamp = time() - 3600 -(time() % 3600); //If it is 9:54, startTimeStamp is 8:00 
-                    $endTimeStamp = time() - (time() % 3600);//If it is 9:54, endTimeStamp is 9:00 
+                    $startTimeStamp = time() - 3600 - (time() % 3600); //If it is 9:54, startTimeStamp is 8:00
+                    $endTimeStamp = time() - (time() % 3600); //If it is 9:54, endTimeStamp is 9:00
                     break;
                 case 1: //Daily
                     $startTimeStamp = strtotime('yesterday');
@@ -274,17 +282,6 @@ class CSVZipExport extends WebHookModule
         return $options;
     }
 
-    private function ValidateInstance($smtpInstanceID)
-    {
-        if (IPS_InstanceExists($smtpInstanceID)) {
-            $this->SendDebug('SMTP-Instance', $this->Translate('No valid SMTP-Instance selected'), 0);
-            if (IPS_GetInstance($smtpInstanceID)['ModuleInfo']['ModuleID'] == '{375EAF21-35EF-4BC4-83B3-C780FD8BD88A}') {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private function UpdateMailInterval()
     {
         if ($this->ReadPropertyBoolean('IntervalStatus')) {
@@ -311,6 +308,10 @@ class CSVZipExport extends WebHookModule
                 case 3: //Monthly
                     $mailDate = strtotime('first day of next month ' . $mailTime);
                     $this->SendDebug('Next Dispatch (Month)', date('d.m.Y H:i:s', $mailDate), 0);
+                    break;
+                case 4: //Yearly
+                    $mailDate = strtotime('first day of January next year' . $mailTime);
+                    $this->SendDebug('Next Dispatch (Year)', date('d.m.Y H:i:s', $mailDate), 0);
                     break;
             }
             $difference = $mailDate - time();
