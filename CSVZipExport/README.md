@@ -73,7 +73,7 @@ Beispiel:
 
 
 `void CSV_SendMail(integer $InstanzID);`
-Senden durch eine SMTP Instaz eine Mail mit einer erzeugten Zip-Datei
+Senden durch eine SMTP Instanz eine Mail mit einer erzeugten Zip-Datei
 
 Beispiel:
 `CSV_SendMail(12345);`
