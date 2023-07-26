@@ -107,23 +107,40 @@ class CSVZipExport extends WebHookModule
         $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ContentTemp.txt';
         file_put_contents($contentFile, ''); //Create the tempfile
         $loopAgain = true;
+        $endElements = [];
 
         while ($loopAgain) {
             $content = '';
             if ($AggregationStage != 7) {
                 $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp - 1, $limit);
+                $loopAgain = count($loggedValues) == $limit;
                 for ($j = 0; $j < count($loggedValues); $j++) {
                     $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Avg'] . "\n";
                 }
             } else {
-                $loggedValues = AC_GetLoggedValues($archiveControlID, $ArchiveVariable, $startTimeStamp, $endTimeStamp - 1, $limit);
+                $loggedValues = AC_GetLoggedValues($archiveControlID, $ArchiveVariable, $startTimeStamp, $endTimeStamp, $limit);
+                $loopAgain = count($loggedValues) == $limit;
+
+                //Protect values to duplicate on limit border 
+                foreach ($endElements as $element) {
+                    if($element == reset($loggedValues)){
+                        array_shift($loggedValues);
+                    }
+                }
+
                 for ($j = 0; $j < count($loggedValues); $j++) {
                     $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Value'] . "\n";
                 }
             }
-            $loopAgain = count($loggedValues) == $limit;
-            $endTimeStamp = end($loggedValues)['TimeStamp'];
             file_put_contents($contentFile, $content, FILE_APPEND | LOCK_EX);
+            
+            if ($loopAgain) {
+                $endTimeStamp = end($loggedValues)['TimeStamp'];
+                $endElements = array_filter($loggedValues, function($element) use ($endTimeStamp) {
+                    return $element['TimeStamp'] == $endTimeStamp;
+                });
+            };
+            
         }
 
         //Generate zip with aggregated values
