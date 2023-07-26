@@ -121,9 +121,9 @@ class CSVZipExport extends WebHookModule
                 $loggedValues = AC_GetLoggedValues($archiveControlID, $ArchiveVariable, $startTimeStamp, $endTimeStamp, $limit);
                 $loopAgain = count($loggedValues) == $limit;
 
-                //Protect values to duplicate on limit border 
+                //Protect values to duplicate on limit border
                 foreach ($endElements as $element) {
-                    if($element == reset($loggedValues)){
+                    if ($element == reset($loggedValues)) {
                         array_shift($loggedValues);
                     }
                 }
@@ -133,14 +133,14 @@ class CSVZipExport extends WebHookModule
                 }
             }
             file_put_contents($contentFile, $content, FILE_APPEND | LOCK_EX);
-            
+
             if ($loopAgain) {
                 $endTimeStamp = end($loggedValues)['TimeStamp'];
-                $endElements = array_filter($loggedValues, function($element) use ($endTimeStamp) {
+                $endElements = array_filter($loggedValues, function ($element) use ($endTimeStamp)
+                {
                     return $element['TimeStamp'] == $endTimeStamp;
                 });
-            };
-            
+            }
         }
 
         //Generate zip with aggregated values
