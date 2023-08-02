@@ -112,7 +112,7 @@ class CSVZipExport extends WebHookModule
         while ($loopAgain) {
             $content = '';
             if ($AggregationStage != 7) {
-                $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp - 1, $limit);
+                $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, $limit);
                 $loopAgain = count($loggedValues) == $limit;
                 for ($j = 0; $j < count($loggedValues); $j++) {
                     $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Avg'] . "\n";
@@ -122,10 +122,9 @@ class CSVZipExport extends WebHookModule
                 $loopAgain = count($loggedValues) == $limit;
 
                 //Protect values to duplicate on limit border
+                //endElements are the last element on the previous array
                 foreach ($endElements as $element) {
-                    if ($element == reset($loggedValues)) {
-                        array_shift($loggedValues);
-                    }
+                    array_shift($loggedValues);
                 }
 
                 for ($j = 0; $j < count($loggedValues); $j++) {
@@ -136,10 +135,16 @@ class CSVZipExport extends WebHookModule
 
             if ($loopAgain) {
                 $endTimeStamp = end($loggedValues)['TimeStamp'];
-                $endElements = array_filter($loggedValues, function ($element) use ($endTimeStamp)
-                {
-                    return $element['TimeStamp'] == $endTimeStamp;
-                });
+
+                if ($AggregationStage != 7) {
+                    $endTimeStamp -= 1;
+                } else {
+                    //Only logged values can have duplicates on the same timestamp
+                    $endElements = array_filter($loggedValues, function ($element) use ($endTimeStamp)
+                    {
+                        return $element['TimeStamp'] == $endTimeStamp;
+                    });
+                }
             }
         }
 
