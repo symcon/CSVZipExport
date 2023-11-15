@@ -87,21 +87,21 @@ class CSVZipExport extends WebHookModule
         $endTimeStamp = 0;
 
         switch ($AggregationStage) {
-                case 0: //Hourly
-                case 5: //1-Minute
-                case 6: //5-Minute
-                case 7: //raw datas
-                    $startTimeStamp = $this->TransferTime($AggregationStart, true, false);
-                    $endTimeStamp = $this->TransferTime($AggregationEnd, false, false);
-                    break;
-                case 1: //Daily
-                case 2: //Weekly
-                case 3: //Monthly
-                case 4: //Yearly
-                    $startTimeStamp = $this->TransferTime($AggregationStart, true, true);
-                    $endTimeStamp = $this->TransferTime($AggregationEnd, false, true);
-                    break;
-            }
+            case 0: //Hourly
+            case 5: //1-Minute
+            case 6: //5-Minute
+            case 7: //raw datas
+                $startTimeStamp = $this->TransferTime($AggregationStart, true, false);
+                $endTimeStamp = $this->TransferTime($AggregationEnd, false, false);
+                break;
+            case 1: //Daily
+            case 2: //Weekly
+            case 3: //Monthly
+            case 4: //Yearly
+                $startTimeStamp = $this->TransferTime($AggregationStart, true, true);
+                $endTimeStamp = $this->TransferTime($AggregationEnd, false, true);
+                break;
+        }
 
         //Generate zip with aggregated values
         $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
@@ -208,13 +208,13 @@ class CSVZipExport extends WebHookModule
         $customTime = '';
         if ($ignoreTime) {
             switch ($start) {
-                    case true:
-                        $customTime = '00:00:00';
-                        break;
-                    case false:
-                        $customTime = '23:59:59';
-                        break;
-                }
+                case true:
+                    $customTime = '00:00:00';
+                    break;
+                case false:
+                    $customTime = '23:59:59';
+                    break;
+            }
         } else {
             $customTime = sprintf('%02d:%02d:%02d', $time['hour'], $time['minute'], $time['second']);
         }
