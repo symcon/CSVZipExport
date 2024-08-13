@@ -26,6 +26,11 @@
             "requiredLogging": 1
         },
         {
+            "type": "CheckBox",
+            "caption": "Decimal Separator Comma",
+            "name": "DecimalSeparator"
+        }, 
+        {
             "type": "SelectDateTime",
             "caption": "Aggregation Start",
             "name": "AggregationStart",
