@@ -29,7 +29,7 @@
             "type": "CheckBox",
             "caption": "Decimal Separator Comma",
             "name": "DecimalSeparator"
-        }, 
+        },
         {
             "type": "SelectDateTime",
             "caption": "Aggregation Start",
