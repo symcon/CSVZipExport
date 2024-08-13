@@ -113,13 +113,13 @@ class CSVZipExport extends WebHookModule
             if ($AggregationStage != 7) {
                 $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, 0);
                 for ($j = 0; $j < count($loggedValues); $j++) {
-                    $value = $separator && is_numeric($loggedValues[$j]['Avg']) ? str_replace(".", ",",  "".$loggedValues[$j]['Avg']) : $loggedValues[$j]['Avg'];
+                    $value = $separator && is_numeric($loggedValues[$j]['Avg']) ? str_replace('.', ',', '' . $loggedValues[$j]['Avg']) : $loggedValues[$j]['Avg'];
                     $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $value . "\n";
                 }
             } else {
                 $loggedValues = AC_GetLoggedValues($archiveControlID, $ArchiveVariable, $startTimeStamp, $endTimeStamp, 0);
                 for ($j = 0; $j < count($loggedValues); $j++) {
-                    $value = $separator && is_numeric($loggedValues[$j]['Value']) ? str_replace(".", ",",  "".$loggedValues[$j]['Value']) : $loggedValues[$j]['Value'];
+                    $value = $separator && is_numeric($loggedValues[$j]['Value']) ? str_replace('.', ',', '' . $loggedValues[$j]['Value']) : $loggedValues[$j]['Value'];
                     $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $value . "\n";
                 }
             }
