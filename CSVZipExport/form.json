@@ -26,9 +26,19 @@
             "requiredLogging": 1
         },
         {
-            "type": "CheckBox",
-            "caption": "Decimal Separator Comma",
-            "name": "DecimalSeparator"
+            "type": "Select",
+            "caption": "Decimal Separator",
+            "name": "DecimalSeparator",
+            "options": [
+                {
+                    "caption": "Comma",
+                    "value": ","
+                },
+                {
+                    "caption": "Dot",
+                    "value": "."
+                }
+            ]
         },
         {
             "type": "SelectDateTime",
