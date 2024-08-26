@@ -26,8 +26,11 @@
             "Summary of %s (%s to %s)": "Zusammenfassung von %s (%s bis %s)",
             "In the appendix you can find the created CSV-File.": "Im Anhang finden Sie die erstellte CSV-Datei.",
             "The selected SMTP-Instance doesn't exist": "Die ausgewählte SMTP-Instanz existiert nicht",
+            "Decimal Separator": "Dezimaltrennzeichen",
             "Variable is not selected": "Variable ist nicht ausgewählt",
-            "https://www.symcon.de/en/service/documentation/module-reference/csv-zip-export/": "https://www.symcon.de/de/service/dokumentation/modulreferenz/csv-zip-export/"
+            "https://www.symcon.de/en/service/documentation/module-reference/csv-zip-export/": "https://www.symcon.de/de/service/dokumentation/modulreferenz/csv-zip-export/",
+            "Dot": "Punkt",
+            "Comma": "Komma"
         }
     }
 }

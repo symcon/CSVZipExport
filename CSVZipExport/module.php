@@ -26,6 +26,7 @@ class CSVZipExport extends WebHookModule
         $this->RegisterPropertyInteger('SMTPInstance', 0);
         $this->RegisterPropertyBoolean('IntervalStatus', false);
         $this->RegisterPropertyString('MailTime', '{"hour":12,"minute":0,"second":0}');
+        $this->RegisterPropertyString('DecimalSeparator', ',');
 
         //Timer
         $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
@@ -106,17 +107,20 @@ class CSVZipExport extends WebHookModule
         //Generate zip with aggregated values
         $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
         $zip = new ZipArchive();
+        $separator = $this->ReadPropertyString('DecimalSeparator');
         if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
             $content = '';
             if ($AggregationStage != 7) {
                 $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, 0);
                 for ($j = 0; $j < count($loggedValues); $j++) {
-                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Avg'] . "\n";
+                    $value = is_numeric($loggedValues[$j]['Avg']) ? str_replace('.', $separator, '' . $loggedValues[$j]['Avg']) : $loggedValues[$j]['Avg'];
+                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $value . "\n";
                 }
             } else {
                 $loggedValues = AC_GetLoggedValues($archiveControlID, $ArchiveVariable, $startTimeStamp, $endTimeStamp, 0);
                 for ($j = 0; $j < count($loggedValues); $j++) {
-                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Value'] . "\n";
+                    $value = is_numeric($loggedValues[$j]['Value']) ? str_replace('.', $separator, '' . $loggedValues[$j]['Value']) : $loggedValues[$j]['Value'];
+                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $value . "\n";
                 }
             }
             $zip->addFromString($this->GenerateFileName($ArchiveVariable, '.csv'), $content);
