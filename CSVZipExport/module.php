@@ -26,6 +26,7 @@ class CSVZipExport extends WebHookModule
         $this->RegisterPropertyInteger('SMTPInstance', 0);
         $this->RegisterPropertyBoolean('IntervalStatus', false);
         $this->RegisterPropertyString('MailTime', '{"hour":12,"minute":0,"second":0}');
+        $this->RegisterPropertyString('DecimalSeparator', ',');
 
         //Timer
         $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
@@ -115,7 +116,8 @@ class CSVZipExport extends WebHookModule
                 $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, $limit);
                 $loopAgain = count($loggedValues) == $limit;
                 for ($j = 0; $j < count($loggedValues); $j++) {
-                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Avg'] . "\n";
+                    $value = is_numeric($loggedValues[$j]['Avg']) ? str_replace('.', $separator, '' . $loggedValues[$j]['Avg']) : $loggedValues[$j]['Avg'];
+                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $value . "\n";
                 }
             } else {
                 $loggedValues = AC_GetLoggedValues($archiveControlID, $ArchiveVariable, $startTimeStamp, $endTimeStamp, $limit);
@@ -128,7 +130,8 @@ class CSVZipExport extends WebHookModule
                 }
 
                 for ($j = 0; $j < count($loggedValues); $j++) {
-                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $loggedValues[$j]['Value'] . "\n";
+                    $value = is_numeric($loggedValues[$j]['Value']) ? str_replace('.', $separator, '' . $loggedValues[$j]['Value']) : $loggedValues[$j]['Value'];
+                    $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $value . "\n";
                 }
             }
             file_put_contents($contentFile, $content, FILE_APPEND | LOCK_EX);
@@ -244,13 +247,13 @@ class CSVZipExport extends WebHookModule
         $customTime = '';
         if ($ignoreTime) {
             switch ($start) {
-                    case true:
-                        $customTime = '00:00:00';
-                        break;
-                    case false:
-                        $customTime = '23:59:59';
-                        break;
-                }
+                case true:
+                    $customTime = '00:00:00';
+                    break;
+                case false:
+                    $customTime = '23:59:59';
+                    break;
+            }
         } else {
             $customTime = sprintf('%02d:%02d:%02d', $time['hour'], $time['minute'], $time['second']);
         }

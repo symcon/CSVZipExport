@@ -8,6 +8,6 @@ _Das Modul „Smart Energy Box“ wurde in Kooperation zwischen der Symcon GmbH,
 
 Folgende Module beinhaltet das CSVZipExport Repository:
 
-- __CSVZipExport__ ([Dokumentation](CSVZipExport))
+- __CSVZipExport__ ([Dokumentation](https://www.symcon.de/de/service/dokumentation/modulreferenz/csv-zip-export))
 
 Dieses Modul bietet die Möglichkeit, die aggregierten Werte einer Variable als CSV-Datei in einem ZIP-Archiv zu exportieren.
