@@ -98,7 +98,7 @@ class CSVZipExport extends WebHookModule
         $tmpfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
         $zip = new ZipArchive();
         $separator = $this->ReadPropertyString('DecimalSeparator');
-        if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+        if ($zip->open($tmpfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
             $content = '';
             if ($AggregationStage != 7) {
                 $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, 0);
