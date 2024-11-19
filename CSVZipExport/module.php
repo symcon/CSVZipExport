@@ -69,7 +69,7 @@ class CSVZipExport extends WebHookModule
     {
         if (!IPS_VariableExists($ArchiveVariable)) {
             $this->SetStatus(201); //for the instance
-            echo  $this->Translate('Variable is not selected');
+            echo $this->Translate('Variable is not selected');
             return 'javascript:alert("' . $this->Translate('Variable is not selected') . ' ");'; //for the Browser
         }
         $this->UpdateFormField('ExportBar', 'visible', true);
