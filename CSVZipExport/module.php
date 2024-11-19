@@ -107,6 +107,7 @@ class CSVZipExport extends WebHookModule
 
         $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ContentTemp.txt';
         file_put_contents($contentFile, ''); //Create the tempfile
+        $separator = $this->ReadPropertyString('DecimalSeparator');
         $loopAgain = true;
         $endElements = [];
 
