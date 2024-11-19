@@ -26,6 +26,21 @@
             "requiredLogging": 1
         },
         {
+            "type": "Select",
+            "caption": "Decimal Separator",
+            "name": "DecimalSeparator",
+            "options": [
+                {
+                    "caption": "Comma",
+                    "value": ","
+                },
+                {
+                    "caption": "Dot",
+                    "value": "."
+                }
+            ]
+        },
+        {
             "type": "SelectDateTime",
             "caption": "Aggregation Start",
             "name": "AggregationStart",
