@@ -93,7 +93,7 @@ class CSVZipExport extends WebHookModule
     public function Export(int $ArchiveVariable, int $AggregationStage, int $startTimeStamp, int $endTimeStamp)
     {
         $archiveControlID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
-       
+
         $limit = IPS_GetOption('ArchiveRecordLimit');
 
         $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ContentTemp.txt';
@@ -103,7 +103,7 @@ class CSVZipExport extends WebHookModule
         $endElements = [];
 
         while ($loopAgain) {
-        
+
             $content = '';
             if ($AggregationStage != 7) {
                 $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, $limit);
@@ -143,7 +143,6 @@ class CSVZipExport extends WebHookModule
                 }
             }
         }
-    
 
         //Generate zip with aggregated values
         $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
