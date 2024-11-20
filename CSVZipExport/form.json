@@ -115,20 +115,9 @@
             "name": "IntervalStatus"
         },
         {
-            "type": "RowLayout",
-            "items": [
-                {
-                    "type": "SelectInstance",
-                    "caption": "SMTP-Instance",
-                    "name": "SMTPInstance",
-                    "onChange": "CSV_UpdateInstanceError($id, $SMTPInstance);"
-                },
-                {
-                    "type": "Label",
-                    "name": "SMTPInstanceError",
-                    "caption": ""
-                }
-            ]
+            "type": "SelectInstance",
+            "caption": "SMTP-Instance",
+            "name": "SMTPInstance"
         },
         {
             "type": "Select",
@@ -149,6 +138,10 @@
                 {
                     "caption": "Monthly",
                     "value": 3
+                },
+                {
+                    "caption": "Yearly",
+                    "value": 4
                 }
             ],
             "name": "MailInterval"
@@ -162,6 +155,23 @@
             "type": "Button",
             "caption": "Send Mail Now",
             "onClick": "CSV_SendMail($id);"
+        }
+    ],
+    "status": [
+        {
+            "code": 201,
+            "icon": "error",
+            "caption": "Variable is not selected"
+        },
+        {
+            "code": 202,
+            "icon": "error",
+            "caption": "No valid SMTP-Instance selected"
+        },
+        {
+            "code": 203,
+            "icon": "error",
+            "caption": "The selected SMTP-Instance doesn't exist"
         }
     ]
 }
