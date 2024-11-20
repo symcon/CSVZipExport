@@ -94,28 +94,66 @@ class CSVZipExport extends WebHookModule
     {
         $archiveControlID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
 
-        //Generate zip with aggregated values
-        $tmpfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
-        $zip = new ZipArchive();
+        $limit = IPS_GetOption('ArchiveRecordLimit');
+
+        $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ContentTemp.txt';
+        file_put_contents($contentFile, ''); //Create the tempfile
         $separator = $this->ReadPropertyString('DecimalSeparator');
-        if ($zip->open($tmpfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+        $loopAgain = true;
+        $endElements = [];
+
+        while ($loopAgain) {
+
             $content = '';
             if ($AggregationStage != 7) {
-                $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, 0);
+                $loggedValues = AC_GetAggregatedValues($archiveControlID, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, $limit);
+                $loopAgain = count($loggedValues) == $limit;
                 for ($j = 0; $j < count($loggedValues); $j++) {
                     $value = is_numeric($loggedValues[$j]['Avg']) ? str_replace('.', $separator, '' . $loggedValues[$j]['Avg']) : $loggedValues[$j]['Avg'];
                     $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $value . "\n";
                 }
             } else {
-                $loggedValues = AC_GetLoggedValues($archiveControlID, $ArchiveVariable, $startTimeStamp, $endTimeStamp, 0);
+                $loggedValues = AC_GetLoggedValues($archiveControlID, $ArchiveVariable, $startTimeStamp, $endTimeStamp, $limit);
+                $loopAgain = count($loggedValues) == $limit;
+
+                //Protect values to duplicate on limit border
+                //endElements are the last element on the previous array
+                foreach ($endElements as $element) {
+                    array_shift($loggedValues);
+                }
+
                 for ($j = 0; $j < count($loggedValues); $j++) {
                     $value = is_numeric($loggedValues[$j]['Value']) ? str_replace('.', $separator, '' . $loggedValues[$j]['Value']) : $loggedValues[$j]['Value'];
                     $content .= date('d.m.Y H:i:s', $loggedValues[$j]['TimeStamp']) . ';' . $value . "\n";
                 }
             }
-            $zip->addFromString($this->GenerateFileName($ArchiveVariable, '.csv'), $content);
+            file_put_contents($contentFile, $content, FILE_APPEND | LOCK_EX);
+
+            if ($loopAgain) {
+                $endTimeStamp = end($loggedValues)['TimeStamp'];
+
+                if ($AggregationStage != 7) {
+                    $endTimeStamp -= 1;
+                } else {
+                    //Only logged values can have duplicates on the same timestamp
+                    $endElements = array_filter($loggedValues, function ($element) use ($endTimeStamp)
+                    {
+                        return $element['TimeStamp'] == $endTimeStamp;
+                    });
+                }
+            }
+        }
+
+        //Generate zip with aggregated values
+        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
+        $zip = new ZipArchive();
+        //Set file to new Zip File
+        if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+            $zip->addFile($contentFile, $this->GenerateFileName($ArchiveVariable, '.csv'));
             $zip->close();
         }
+
+        unlink($contentFile); //Delete temp file
 
         //Return
         return '/hook/zip/' . $this->InstanceID;
