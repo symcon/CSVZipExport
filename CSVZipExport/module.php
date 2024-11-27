@@ -3,9 +3,15 @@
 declare(strict_types=1);
 
 include_once __DIR__ . '/../libs/WebHookModule.php';
+include_once __DIR__ . '/../libs/vendor/autoload.php';
+include_once __DIR__ . '/../libs/FTP.php';
+include_once __DIR__ . '/../libs/FTPS.php';
+use phpseclib3\Net\SFTP;
 
 class CSVZipExport extends WebHookModule
 {
+    private $archiveId;
+
     public function __construct($InstanceID)
     {
         parent::__construct($InstanceID, 'zip/' . $InstanceID);
@@ -17,22 +23,34 @@ class CSVZipExport extends WebHookModule
         parent::Create();
 
         // Properties
+        $this->RegisterPropertyString('ExportOption', 'single');
+        $this->RegisterPropertyString('SelectedVariables', '[]');
+        $this->RegisterPropertyBoolean('ZipFile', true);
         $this->RegisterPropertyInteger('ArchiveVariable', 0);
+        $this->RegisterPropertyString('DecimalSeparator', ',');
         $this->RegisterPropertyInteger('AggregationStage', 1);
         $dateFormat = '{"year":%d,"month":%d,"day":%d,"hour":%d,"minute":%d,"second":%d}';
         $this->RegisterPropertyString('AggregationStart', sprintf($dateFormat, date('Y'), date('m'), 1, 0, 0, 0));
         $this->RegisterPropertyString('AggregationEnd', sprintf($dateFormat, date('Y'), date('m'), date('d'), 23, 59, 59));
+        // Properties for Mail
         $this->RegisterPropertyInteger('MailInterval', 0);
         $this->RegisterPropertyInteger('SMTPInstance', 0);
         $this->RegisterPropertyBoolean('IntervalStatus', false);
         $this->RegisterPropertyString('MailTime', '{"hour":12,"minute":0,"second":0}');
-        $this->RegisterPropertyString('DecimalSeparator', ',');
+        // Properties for FTP & co
+        $this->RegisterPropertyString('ConnectionType', 'SFTP');
+        $this->RegisterPropertyString('Host', '');
+        $this->RegisterPropertyInteger('Port', 22);
+        $this->RegisterPropertyString('Username', '');
+        $this->RegisterPropertyString('Password', '');
 
         //Timer
         $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
         $this->RegisterTimer('MailTimer', 0, 'CSV_SendMail($_IPS[\'TARGET\']);');
 
         $this->DeleteZip();
+
+        $this->archiveId = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
     }
 
     public function Destroy()
@@ -54,16 +72,142 @@ class CSVZipExport extends WebHookModule
         //Add options to form
         $jsonForm = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
 
+        //* Set visible based on the option
+        // json['elements'][1] = FilterRow
+        // json['elements'][2] = ArchiveVariable
+        // json['elements'][3] = SelectedVariables List
+        // json['elements'][4] = Label SingleInfo
+        // json['elements'][5] = Label MultiInfo
+        // json['elements'][6] = Checkbox Zip
+        $option = $this->ReadPropertyString('ExportOption');
+        $jsonForm['elements'][1]['visible'] = $option == 'mysql';
+        $jsonForm['elements'][2]['visible'] = $option == 'mysql';
+        $jsonForm['elements'][3]['visible'] = $option != 'mysql';
+        $jsonForm['elements'][4]['visible'] = $option == 'single';
+        $jsonForm['elements'][5]['visible'] = $option == 'multi';
+        $jsonForm['elements'][6]['value'] = $option != 'multi' ? true : $this->ReadPropertyBoolean('ZipFile');
+        $jsonForm['elements'][6]['enabled'] = $option == 'multi';
+
         //If the module "SyncMySQL" is installed, get other options
-        if (IPS_ModuleExists('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}')) {
-            $jsonForm['elements'][0]['visible'] = true;
-            $jsonForm['elements'][1]['type'] = 'Select';
-            $jsonForm['elements'][1]['options'] = $this->GetOptions();
-            unset($jsonForm['elements'][1]['requiredLogging']);
+        if (IPS_ModuleExists('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}') || $this->ReadPropertyString('ExportOption') == 'mysql') {
+            $jsonForm['elements'][1]['visible'] = true;
+            $jsonForm['elements'][2]['type'] = 'Select';
+            $jsonForm['elements'][2]['options'] = $this->GetOptions();
+            unset($jsonForm['elements'][2]['requiredLogging']);
         }
 
         return json_encode($jsonForm);
     }
+    // UI Functions
+    public function UIChangeExportOption($exportOption): void
+    {
+        $this->UpdateFormField('FilterRow', 'visible', $exportOption == 'mysql');
+        $this->UpdateFormField('ArchiveVariable', 'visible', $exportOption == 'mysql');
+        $this->UpdateFormField('SelectedVariables', 'visible', $exportOption != 'mysql');
+        $this->UpdateFormField('SingleInfo', 'visible', $exportOption == 'single');
+        $this->UpdateFormField('ZipFile', 'value', $exportOption != 'multi' ? true : $this->ReadPropertyBoolean('ZipFile'));
+        $this->UpdateFormField('ZipFile', 'enabled', $exportOption == 'multi');
+        $this->UpdateFormField('MultiInfo', 'visible', $exportOption == 'multi');
+    }
+    public function UIChangePort($value): void
+    {
+        if ($this->ReadPropertyInteger('Port') == 21 || $this->ReadPropertyInteger('Port') == 22) {
+            switch ($value) {
+                case 'SFTP':
+                    $value = 22;
+                    break;
+                case 'FTP':
+                case 'FTPS':
+                    $value = 21;
+                    break;
+                default:
+                    # code...
+                    break;
+            }
+            $this->UpdateFormField('Port', 'value', $value);
+        }
+    }
+    public function UISelectDir(string $host, int $port, string $username, string $password, string $connectionType)
+    {
+        $this->UIGoDeeper('/', $host, $port, $username, $password, $connectionType);
+    }
+
+    public function UIAssumeDir(string $value, string $host, int $port, string $username, string $password, string $connectionType)
+    {
+        $connection = $this->createConnectionEx($host, $port, $username, $password, $connectionType, true);
+        if ($connection === false) {
+            return;
+        }
+        $connection->chdir($value);
+        $this->UpdateFormField('TargetDir', 'value', $connection->pwd());
+        $connection->disconnect();
+    }
+
+    public function UILoadDir(string $dir, string $host, int $port, string $username, string $password, string $connectionType)
+    {
+        $connection = $this->createConnectionEx($host, $port, $username, $password, $connectionType, true);
+        if ($connection === false) {
+            return;
+        }
+        $dirs = [];
+        //Initial is '..' to handle a go up if $dir != '/'
+        if ($dir != '' && $dir != '/') {
+            array_push($dirs, [
+                'SelectedDirectory' => '..',
+                'DeeperDir'         => '⬑',
+            ]);
+        }
+        $list = $connection->rawlist($dir);
+        foreach ($list as $entry) {
+            if ($entry['type'] == 2 &&
+                ($entry['filename'] != '.' && $entry['filename'] != '..')
+            ) {
+                array_push($dirs, [
+                    'SelectedDirectory' => $entry['filename'],
+                    'DeeperDir'         => '↳'
+                ]);
+            }
+        }
+        $this->UpdateFormField('SelectTargetDirectory', 'values', json_encode($dirs));
+        //If the root directory is empty
+        if ($dirs == []) {
+            echo $this->Translate('There are no directories, we assume the root as target');
+            $this->UIAssumeDir($dir, $host, $port, $username, $password, $connectionType);
+        }
+
+        $connection->disconnect();
+    }
+
+    public function UIGoDeeper(string $value, string $host, int $port, string $username, string $password, string $connectionType)
+    {
+        $connection = $this->createConnectionEx($host, $port, $username, $password, $connectionType, true);
+        if ($connection === false) {
+            return;
+        }
+        $connection->chdir($value);
+        $this->UILoadDir($connection->pwd(), $host, $port, $username, $password, $connectionType);
+        $this->UpdateFormField('CurrentDir', 'value', $connection->pwd());
+        $connection->disconnect();
+    }
+
+    public function UITestConnection()
+    {
+        $this->UpdateFormField('ProgressAlert', 'visible', true);
+        $connection = $this->createConnectionEx(
+            $this->ReadPropertyString('Host'),
+            $this->ReadPropertyInteger('Port'),
+            $this->ReadPropertyString('Username'),
+            $this->ReadPropertyString('Password'),
+            $this->ReadPropertyString('ConnectionType'),
+            true,
+        );
+        if ($connection !== false) {
+            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Connection is valid'));
+            $this->UpdateFormField('Progress', 'visible', false);
+            $connection->disconnect();
+        }
+    }
+    //*---------------*//
 
     public function UserExport(int $ArchiveVariable, int $AggregationStage, string $AggregationStart, string $AggregationEnd)
     {
@@ -363,5 +507,67 @@ class CSVZipExport extends WebHookModule
         } else {
             $this->SetTimerInterval('MailTimer', 0);
         }
+    }
+
+    // * Connection for FTP & co
+    private function createConnection()
+    {
+        return $this->createConnectionEx(
+            $this->ReadPropertyString('Host'),
+            $this->ReadPropertyInteger('Port'),
+            $this->ReadPropertyString('Username'),
+            $this->ReadPropertyString('Password'),
+            $this->ReadPropertyString('ConnectionType'),
+            false,
+        );
+    }
+
+    // * Connection for FTP & co
+    private function createConnectionEx(string $host, int $port, string $username, string $password, string $connectionType, bool $showError)
+    {
+        $this->UpdateFormField('Progress', 'visible', true);
+        $this->UpdateFormField('Progress', 'caption', $this->Translate('Wait on connection'));
+        //Create Connection
+        try {
+            switch ($connectionType) {
+                case 'SFTP':
+                    $connection = new SFTP($host, $port);
+                    break;
+                case 'FTP':
+                    $connection = new FTP($host, $port);
+                    break;
+                case 'FTPS':
+                    $connection = new FTPS($host, $port);
+                    break;
+                default:
+                    if (!$showError) {
+                        $this->SetStatus(201);
+                    } else {
+                        echo $this->Translate('The Connection Type is undefined');
+                    }
+                    break;
+            }
+        } catch (\Throwable $th) {
+            //Throw than the initial of FTP or FTPS connection failed
+            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate($th->getMessage()));
+            $this->UpdateFormField('Progress', 'visible', false);
+            if (!$showError) {
+                $this->SetStatus(203);
+            } else {
+                echo $this->Translate($th->getMessage());
+            }
+            return false;
+        }
+        if ($connection->login($username, $password) === false) {
+            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Username/Password is invalid'));
+            $this->UpdateFormField('Progress', 'visible', false);
+            if (!$showError) {
+                $this->SetStatus(201);
+            } else {
+                echo $this->Translate('Username/Password is invalid');
+            }
+            return false;
+        }
+        return $connection;
     }
 }
