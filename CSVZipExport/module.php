@@ -51,7 +51,6 @@ class CSVZipExport extends WebHookModule
 
         $this->DeleteZip();
 
-        
     }
 
     public function Destroy()
@@ -111,7 +110,7 @@ class CSVZipExport extends WebHookModule
         $this->UpdateFormField('ZipFile', 'enabled', $exportOption == 'multi');
         $this->UpdateFormField('MultiInfo', 'visible', $exportOption == 'multi');
     }
-    /**UI Funktion to change the Port base on the connection type */
+    /*UI Funktion to change the Port base on the connection type */
     public function UIChangePort($value): void
     {
         if ($this->ReadPropertyInteger('Port') == 21 || $this->ReadPropertyInteger('Port') == 22) {
@@ -130,7 +129,7 @@ class CSVZipExport extends WebHookModule
             $this->UpdateFormField('Port', 'value', $value);
         }
     }
-    /**UI Function to select the Connection Dir */
+    /*UI Function to select the Connection Dir */
     public function UISelectDir(string $host, int $port, string $username, string $password, string $connectionType)
     {
         $this->UIGoDeeper('/', $host, $port, $username, $password, $connectionType);
@@ -243,14 +242,14 @@ class CSVZipExport extends WebHookModule
     /** Handle the export */
     public function Export(int $ArchiveVariable, int $AggregationStage, int $startTimeStamp, int $endTimeStamp)
     {
-        $this->SendDebug("Export", $this->archiveID, 0);
+        $this->SendDebug('Export', $this->archiveID, 0);
         $archiveControlID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
         $limit = IPS_GetOption('ArchiveRecordLimit');
 
-        match ($this->ReadPropertyString("ExportOption")) {
-            "single" => $this->ExportMultiFile($AggregationStage, $startTimeStamp, $endTimeStamp, $limit),
-            "multi" => $this->ExportSingleFile($AggregationStage, $startTimeStamp, $endTimeStamp, $limit, $this->ReadPropertyBoolean("ZipFile"),),
-            "mysql" => $this->ExportMySQL($AggregationStage, $startTimeStamp, $endTimeStamp, $limit), 
+        match ($this->ReadPropertyString('ExportOption')) {
+            'single' => $this->ExportMultiFile($AggregationStage, $startTimeStamp, $endTimeStamp, $limit),
+            'multi'  => $this->ExportSingleFile($AggregationStage, $startTimeStamp, $endTimeStamp, $limit, $this->ReadPropertyBoolean('ZipFile')),
+            'mysql'  => $this->ExportMySQL($AggregationStage, $startTimeStamp, $endTimeStamp, $limit),
         };
 
         //Return
@@ -327,11 +326,21 @@ class CSVZipExport extends WebHookModule
     protected function ProcessHookData()
     {
         //$ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
-        $ArchiveVariable = $this->InstanceID;
-        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
-        $this->SendDebug("ProcessHookData", $path . " ". file_exists($path), 0);
-        header('Content-Disposition: attachment; filename="' . $this->GenerateFileName($ArchiveVariable) . '"');
-        header('Content-Type: application/zip; charset=utf-8;');
+        $ArchiveVariable = $this->InstanceID; // TODO Change then Option is Mysql
+        $zipped = $this->ReadPropertyBoolean('ZipFile');
+        $this->SendDebug('Zipped?', $zipped, 0);
+        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . ($zipped ? $this->GenerateFileName($ArchiveVariable) : $this->GenerateFileName($ArchiveVariable, '.csv'));
+        if (!file_exists($path)) {
+            throw new Exception('File ' . $path . " doesn't Exist", 1);
+        }
+        $this->SendDebug('ProcessHookData', $path . ' ' . file_exists($path), 0);
+        if ($zipped) {
+            header('Content-Disposition: attachment; filename="' . $this->GenerateFileName($ArchiveVariable) . '"');
+            header('Content-Type: application/zip; charset=utf-8;');
+        }else {
+            header('Content-Disposition: attachment; filename="' . $this->GenerateFileName($ArchiveVariable, '.csv') . '"');
+            header('Content-Type: text/csv; charset=utf-8;');
+        }
         header('Content-Length:' . filesize($path));
         readfile($path);
     }
@@ -340,14 +349,60 @@ class CSVZipExport extends WebHookModule
      * Export multiple variable in a single file. It is a table [Timestamp, Variable1, ..., Variable n]
      */
     //TODO Funktionalität
-    private function ExportSingleFile()
+    private function ExportSingleFile($level, $start, $end, $limit)
     {
-        $this->SendDebug("SingleFile", "", 0);
+        $this->SendDebug('SingleFile', '', 0);
+
         $content = '';
+        $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->InstanceID, '.csv');
+        file_put_contents($contentFile, ''); //Create the tempfile
         $list = json_decode($this->ReadPropertyString('SelectedVariables'), true);
-        $ListValues = [];
-        foreach ($list as $key => $value) {
-            
+        $getName = function ($variable) use ($list): String
+        {
+            foreach ($list as $key => $value) {
+                if ($value['SelectedVariable'] == $variable) {
+                    return $value['UserDefinedName'] != '' ? $value['UserDefinedName'] : IPS_GetName($variable);
+                }
+            }return '';
+        };
+        $listValues = []; // [Timestamp => [id => Variables]]
+        $variables = [];
+        foreach ($list as $key => $entry) {
+            if (!in_array($entry['SelectedVariable'], $variables)) {
+                $variables[] = $entry['SelectedVariable'];
+            }
+            $loggedValues = $this->fetchArchiveData($entry['SelectedVariable'], $level, $start, $end, $limit);
+            foreach ($loggedValues as $key => $value) {
+                if (!array_key_exists($value['timeStamp'], $listValues)) {
+                    $listValues[$value['timeStamp']] = [];
+                }
+                $listValues[$value['timeStamp']][$entry['SelectedVariable']] = $value['avg'];
+            }
+        }
+        // sort timestamps
+        krsort($listValues);
+        // sort List of the Variables
+        sort($variables);
+        // add the Values to content
+        $content .= 'Date;';
+        foreach ($variables as $key => $value) {
+            $content .= $getName($value) . ';';
+        }
+        $content .= "\n";
+
+        foreach ($listValues as $timeStamp => $value) {
+            ksort($value);
+            $content .= date('d.m.Y H:i:s', $timeStamp) . ';' . implode(';', $value) . "\n";
+        }
+        $this->SendDebug('Put in File ', $content, 0);
+        file_put_contents($contentFile, $content);
+        $this->SendDebug('Is File exist', file_exists($contentFile), 0);
+
+        if ($this->ReadPropertyBoolean('ZipFile')) {
+            $this->zipFile([[$contentFile, $this->GenerateFileName($this->InstanceID, '.csv')]]);
+        }else {
+            file_put_contents(sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->InstanceID, '.csv'), $content);
+            unlink($contentFile);
         }
     }
 
@@ -355,15 +410,15 @@ class CSVZipExport extends WebHookModule
      * Export a single Variable to a file that wrapped with a zip Archive
      */
     //TODO Duplicated code with Multi
-    private function ExportMySQL($AggregationStage, $startTimeStamp, $endTimeStamp, $limit) 
+    private function ExportMySQL($AggregationStage, $startTimeStamp, $endTimeStamp, $limit)
     {
-        $this->SendDebug("Mysql", "", 0);
+        $this->SendDebug('Mysql', '', 0);
         $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ContentTemp.txt';
         file_put_contents($contentFile, ''); //Create the tempfile
         $separator = $this->ReadPropertyString('DecimalSeparator');
         $loopAgain = true;
         $endElements = [];
-        $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable'); 
+        $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
         while ($loopAgain) {
 
             $content = '';
@@ -414,13 +469,13 @@ class CSVZipExport extends WebHookModule
     //TODO Duplicated Code with MYSQL
     private function ExportMultiFile($level, $start, $end, $limit)
     {
-        $this->SendDebug("MultiFile", "", 0);
-        IPS_SemaphoreEnter("MultiFileZip", 5000);
+        $this->SendDebug('MultiFile', '', 0);
+        IPS_SemaphoreEnter('MultiFileZip', 5000);
         $list = json_decode($this->ReadPropertyString('SelectedVariables'), true);
         $exportFiles = [];
-        $separator = $this->ReadPropertyString("DecimalSeparator");
+        $separator = $this->ReadPropertyString('DecimalSeparator');
         foreach ($list as $key => $entry) {
-            $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ContentTemp'.$entry["SelectedVariable"].'.txt';
+            $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ContentTemp' . $entry['SelectedVariable'] . '.txt';
             file_put_contents($contentFile, ''); //Create the tempfile
             $loopAgain = true;
             $endElements = [];
@@ -437,10 +492,10 @@ class CSVZipExport extends WebHookModule
                         array_shift($loggedValues);
                     }
                 }
-                
+
                 foreach ($loggedValues as $key => $value) {
-                    $value = is_numeric($loggedValues[$key]['avg']) 
-                        ? str_replace('.', $separator, '' . $loggedValues[$key]['avg']) 
+                    $value = is_numeric($loggedValues[$key]['avg'])
+                        ? str_replace('.', $separator, '' . $loggedValues[$key]['avg'])
                         : $loggedValues[$key]['avg'];
                     $content .= date('d.m.Y H:i:s', $loggedValues[$key]['timeStamp']) . ';' . $value . "\n";
                 }
@@ -461,18 +516,18 @@ class CSVZipExport extends WebHookModule
                     }
                 }
             }
-            $exportFiles[] = [$contentFile, $this->GenerateFileName($selectedVariable, '.csv', $entry["UserDefinedName"])];
+            $exportFiles[] = [$contentFile, $this->GenerateFileName($selectedVariable, '.csv', $entry['UserDefinedName'])];
         }
         $this->zipFile($exportFiles);
-        IPS_SemaphoreLeave("MultiFileZip");
+        IPS_SemaphoreLeave('MultiFileZip');
     }
 
     /** fetch the Logged Values and returns an array with timestamp and avg
-     * @param int $variable Variable ID that should fetched 
-     * @param int $level AggregationLevel 
-     * @param int $start Timestamp from the start, 0 = from the beginning 
-     * @param int $end Timestamp from the end, 0 = till now 
-     * @param int $limit max fetched data sets 
+     * @param int $variable Variable ID that should fetched
+     * @param int $level AggregationLevel
+     * @param int $start Timestamp from the start, 0 = from the beginning
+     * @param int $end Timestamp from the end, 0 = till now
+     * @param int $limit max fetched data sets
      */
     private function fetchArchiveData(int $variable, int $level, int $start, int $end, $limit): array
     {
@@ -498,9 +553,9 @@ class CSVZipExport extends WebHookModule
         return $aggregationValues;
     }
 
-    /** validate the start and end Timestamp and trim them if necessary 
+    /** validate the start and end Timestamp and trim them if necessary
      * @return array [startTimestamp, endTimestamp]
-    */
+     */
     private function validTimestamps(bool $type, string $AggregationStart, string $AggregationEnd): array
     {
         $jsonToTimestamp = function ($time)
@@ -514,7 +569,7 @@ class CSVZipExport extends WebHookModule
         if ($type) { //UserExport
             $startTimeStamp = $jsonToTimestamp($AggregationStart);
             $endTimeStamp = $jsonToTimestamp($AggregationEnd);
-        } else { //SendMail/FTP 
+        } else { //SendMail/FTP
             switch ($this->ReadPropertyInteger('MailInterval')) {
                 case 0: //Hourly
                     $startTimeStamp = time() - 3600 - (time() % 3600); //If it is 9:54, startTimeStamp is 8:00
@@ -541,9 +596,9 @@ class CSVZipExport extends WebHookModule
         return [$startTimeStamp, $endTimeStamp];
     }
 
-    private function GenerateFileName($variableID, $extension = '.zip', $username = "")
+    private function GenerateFileName($variableID, $extension = '.zip', $username = '')
     {
-        return $variableID . '_' . preg_replace('/[\"\<\>\?\|\\/\:\/]/', '_', ($username == "" ? IPS_GetName($variableID): $username)) . $extension;
+        return $variableID . '_' . preg_replace('/[\"\<\>\?\|\\/\:\/]/', '_', ($username == '' ? IPS_GetName($variableID) : $username)) . $extension;
     }
 
     private function ExtractTimestamp($property)
@@ -696,49 +751,53 @@ class CSVZipExport extends WebHookModule
         return $connection;
     }
 
-    /** Check if Variables exist base on the Export Option */ 
-    private function checkVariables(): bool {
-        if($this->ReadPropertyString("ExportOption") == "mysql"){
-            return IPS_VariableExists($this->ReadPropertyInteger("ArchiveVariable"));
+    /** Check if Variables exist base on the Export Option */
+    private function checkVariables(): bool
+    {
+        if ($this->ReadPropertyString('ExportOption') == 'mysql') {
+            return IPS_VariableExists($this->ReadPropertyInteger('ArchiveVariable'));
         }
-        $list = json_decode($this->ReadPropertyString("SelectedVariables"), true);
-        
+        $list = json_decode($this->ReadPropertyString('SelectedVariables'), true);
+
         foreach ($list as $key => $entry) {
-            if(!IPS_VariableExists($entry["SelectedVariable"])){
-                return false; 
+            if (!IPS_VariableExists($entry['SelectedVariable'])) {
+                return false;
             }
         }
     }
 
     /** Zip the files
      * @return string Path of the Zip
-     * @param array $files Array of the files that should zipped 
+     * @param array $files Array of the files that should zipped
      */
-    private function zipFile(array $files = [],) : string {
-        $this->SendDebug("Zip File", print_r($files, true), 0);
-        
+    private function zipFile(array $files = []): string
+    {
+        $this->SendDebug('Zip File', print_r($files, true), 0);
+
         $name = $this->InstanceID;
-        
 
-       //Generate zip with aggregated values
-       $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($name);
-       $zip = new ZipArchive();
-       //Set file to new Zip File
-       if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+        //Generate zip with aggregated values
+        $tempfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($name);
+        $zip = new ZipArchive();
+        //Set file to new Zip File
+        if ($zip->open($tempfile, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
             foreach ($files as $file) {
-                $zip->addFile($file[0], $file[1]);
+                $this->SendDebug('File', print_r($file, true), 0);
+                $zip->addFile(
+                    $file[0],
+                    $file[1]
+                );
             }
-           //$zip->addFile($contentFile, $this->GenerateFileName($ArchiveVariable, '.csv'));
-           $zip->close();
-       }
+            $zip->close();
+        }
 
-       foreach($files as $file){
-            if(file_exists($file[0])){
+        foreach ($files as $file) {
+            if (file_exists($file[0])) {
                 unlink($file[0]);
             }
-        };
-       $this->SendDebug("ZipFile", $tempfile, 0);
-       return $tempfile;
+        }
+        $this->SendDebug('ZipFile Complete', $tempfile, 0);
+        return $tempfile;
     }
-    
+
 }
