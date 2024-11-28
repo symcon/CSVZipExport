@@ -356,7 +356,7 @@
         {
             "code": 201,
             "icon": "error",
-            "caption": "Variable is not selected"
+            "caption": "A Variable is not selected"
         },
         {
             "code": 202,
