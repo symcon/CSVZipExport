@@ -284,7 +284,7 @@ class CSVZipExport extends WebHookModule
     }
 
     /** The function send the export via Email */
-    public function SendCyclic(string $fromForm = "")
+    public function SendCyclic(string $fromForm = '')
     {
         $archiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
         if (!$this->checkVariables()) {
@@ -303,10 +303,10 @@ class CSVZipExport extends WebHookModule
             $this->SetStatus(102);
         }
 
-        if ($this->ReadPropertyBoolean('SendMail') || $fromForm == "Mail") {
+        if ($this->ReadPropertyBoolean('SendMail') || $fromForm == 'Mail') {
             $this->sendMail($relativePath, $filePath);
         }
-        if ($this->ReadPropertyBoolean('SendFTP') || $fromForm == "FTP") {
+        if ($this->ReadPropertyBoolean('SendFTP') || $fromForm == 'FTP') {
             $this->sendFTP($relativePath, $filePath);
         }
 
@@ -358,10 +358,10 @@ class CSVZipExport extends WebHookModule
         }
 
         $subject = sprintf($this->Translate('Summary of %s (%s to %s)'), IPS_GetName($this->InstanceID), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationStart')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationEnd')));
-        if(SMTP_SendMailAttachment($smtpInstanceID, $subject, $this->Translate('In the appendix you can find the created CSV-File.'), $absolutePath)){
-            echo($this->Translate("Done"));
+        if (SMTP_SendMailAttachment($smtpInstanceID, $subject, $this->Translate('In the appendix you can find the created CSV-File.'), $absolutePath)) {
+            echo $this->Translate('Done');
         }
-    
+
     }
 
     /** Send ZIP/ CSV per (S)FTP(S) */

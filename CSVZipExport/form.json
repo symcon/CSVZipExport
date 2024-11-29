@@ -233,11 +233,11 @@
                 },
                 {
                     "type": "ExpansionPanel",
-                    "caption": "FTP,FTPS, SFTP Connection",
+                    "caption": "FTP, FTPS, SFTP",
                     "items": [
                         {
                             "type": "CheckBox",
-                            "caption": "Send per (S)FTP(S)",
+                            "caption": "Send per SFTP/FTP/FTPS",
                             "name": "SendFTP"
                         },
                         {
@@ -365,7 +365,7 @@
                         },
                         {
                             "type": "Button",
-                            "caption": "Send File Now",
+                            "caption": "Send File now",
                             "onClick": "CSV_SendCyclic($id, \"FTP\");"
                         }
                     ]
