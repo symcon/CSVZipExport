@@ -171,17 +171,12 @@
         },
         {
             "type": "ExpansionPanel",
-            "caption": "Cyclic mails",
+            "caption": "Cyclic sending",
             "items": [
                 {
                     "type": "CheckBox",
                     "caption": "Enable sending of cyclic mails",
                     "name": "IntervalStatus"
-                },
-                {
-                    "type": "SelectInstance",
-                    "caption": "SMTP-Instance",
-                    "name": "SMTPInstance"
                 },
                 {
                     "type": "Select",
@@ -216,138 +211,164 @@
                     "name": "MailTime"
                 },
                 {
-                    "type": "Button",
-                    "caption": "Send Mail Now",
-                    "onClick": "CSV_SendMail($id);"
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "FTP,FTPS, SFTP Connection",
-            "items": [
-                {
-                    "type": "RowLayout",
+                    "type": "ExpansionPanel",
+                    "caption": "Mail",
                     "items": [
                         {
-                            "type": "Select",
-                            "caption": "Connection Type",
-                            "name": "ConnectionType",
-                            "options": [
+                            "type": "CheckBox",
+                            "name": "SendMail",
+                            "caption": "Send per Mail"
+                        },
+                        {
+                            "type": "SelectInstance",
+                            "caption": "SMTP-Instance",
+                            "name": "SMTPInstance"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Send Mail Now",
+                            "onClick": "CSV_SendCyclic($id, \"Mail\");"
+                        }
+                    ]
+                },
+                {
+                    "type": "ExpansionPanel",
+                    "caption": "FTP,FTPS, SFTP Connection",
+                    "items": [
+                        {
+                            "type": "CheckBox",
+                            "caption": "Send per (S)FTP(S)",
+                            "name": "SendFTP"
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
                                 {
-                                    "caption": "SFTP",
-                                    "value": "SFTP"
+                                    "type": "Select",
+                                    "caption": "Connection Type",
+                                    "name": "ConnectionType",
+                                    "options": [
+                                        {
+                                            "caption": "SFTP",
+                                            "value": "SFTP"
+                                        },
+                                        {
+                                            "caption": "FTP",
+                                            "value": "FTP"
+                                        },
+                                        {
+                                            "caption": "FTPS",
+                                            "value": "FTPS"
+                                        }
+                                    ],
+                                    "onChange": "CSV_UIChangePort($id, $ConnectionType);"
                                 },
                                 {
-                                    "caption": "FTP",
-                                    "value": "FTP"
+                                    "type": "ValidationTextBox",
+                                    "name": "Host",
+                                    "caption": "Host"
                                 },
                                 {
-                                    "caption": "FTPS",
-                                    "value": "FTPS"
+                                    "type": "NumberSpinner",
+                                    "name": "Port",
+                                    "caption": "Port",
+                                    "minimum": 0
                                 }
-                            ],
-                            "onChange": "CSV_UIChangePort($id, $ConnectionType);"
+                            ]
                         },
                         {
-                            "type": "ValidationTextBox",
-                            "name": "Host",
-                            "caption": "Host"
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "Username",
+                                    "caption": "Username"
+                                },
+                                {
+                                    "type": "PasswordTextBox",
+                                    "name": "Password",
+                                    "caption": "Password"
+                                }
+                            ]
                         },
                         {
-                            "type": "NumberSpinner",
-                            "name": "Port",
-                            "caption": "Port",
-                            "minimum": 0
-                        }
-                    ]
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "ValidationTextBox",
-                            "name": "Username",
-                            "caption": "Username"
-                        },
-                        {
-                            "type": "PasswordTextBox",
-                            "name": "Password",
-                            "caption": "Password"
-                        }
-                    ]
-                },
-                {
-                    "type": "RowLayout",
-                    "items": [
-                        {
-                            "type": "ValidationTextBox",
-                            "name": "TargetDir",
-                            "caption": "Target Directory",
-                            "value": ""
-                        },
-                        {
-                            "type": "PopupButton",
-                            "caption": "Select Directory",
-                            "onClick": "CSV_UISelectDir($id, $Host, $Port, $Username, $Password, $ConnectionType);",
-                            "popup": {
-                                "buttons": [
-                                    {
-                                        "type": "Button",
-                                        "caption": "Assume",
-                                        "onClick": [
-                                            "CSV_UIAssumeDir(",
-                                            "$id, ",
-                                            "isset($SelectTargetDirectory['SelectedDirectory']) ? $CurrentDir.'/'.$SelectTargetDirectory['SelectedDirectory'] : $CurrentDir,",
-                                            "$Host,",
-                                            "$Port, ",
-                                            "$Username,",
-                                            "$Password,",
-                                            "$ConnectionType",
-                                            ");"
-                                        ]
-                                    }
-                                ],
-                                "items": [
-                                    {
-                                        "type": "ValidationTextBox",
-                                        "name": "CurrentDir",
-                                        "caption": "Current Directory",
-                                        "value": "",
-                                        "enabled": false
-                                    },
-                                    {
-                                        "type": "List",
-                                        "name": "SelectTargetDirectory",
-                                        "caption": "Select Target Directory",
-                                        "columns": [
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "TargetDir",
+                                    "caption": "Target Directory",
+                                    "value": ""
+                                },
+                                {
+                                    "type": "PopupButton",
+                                    "caption": "Select Directory",
+                                    "onClick": "CSV_UISelectDir($id, $Host, $Port, $Username, $Password, $ConnectionType);",
+                                    "popup": {
+                                        "buttons": [
                                             {
-                                                "caption": "Directory",
-                                                "name": "SelectedDirectory",
-                                                "width": "auto",
-                                                "add": 0,
-                                                "confirm": "Go into this Directory?"
-                                            },
-                                            {
-                                                "onClick": "SB_UIGoDeeper($id,$CurrentDir.'/'.$SelectTargetDirectory['SelectedDirectory'],$Host, $Port, $Username, $Password, $ConnectionType);",
-                                                "caption": "Go into",
-                                                "name": "DeeperDir",
-                                                "width": "75px",
-                                                "add": 0
+                                                "type": "Button",
+                                                "caption": "Assume",
+                                                "onClick": [
+                                                    "CSV_UIAssumeDir(",
+                                                    "$id, ",
+                                                    "isset($SelectTargetDirectory['SelectedDirectory']) ? $CurrentDir.'/'.$SelectTargetDirectory['SelectedDirectory'] : $CurrentDir,",
+                                                    "$Host,",
+                                                    "$Port, ",
+                                                    "$Username,",
+                                                    "$Password,",
+                                                    "$ConnectionType",
+                                                    ");"
+                                                ]
                                             }
                                         ],
-                                        "values": []
+                                        "items": [
+                                            {
+                                                "type": "ValidationTextBox",
+                                                "name": "CurrentDir",
+                                                "caption": "Current Directory",
+                                                "value": "",
+                                                "enabled": false
+                                            },
+                                            {
+                                                "type": "List",
+                                                "name": "SelectTargetDirectory",
+                                                "caption": "Select Target Directory",
+                                                "columns": [
+                                                    {
+                                                        "caption": "Directory",
+                                                        "name": "SelectedDirectory",
+                                                        "width": "auto",
+                                                        "add": 0,
+                                                        "confirm": "Go into this Directory?"
+                                                    },
+                                                    {
+                                                        "onClick": "SB_UIGoDeeper($id,$CurrentDir.'/'.$SelectTargetDirectory['SelectedDirectory'],$Host, $Port, $Username, $Password, $ConnectionType);",
+                                                        "caption": "Go into",
+                                                        "name": "DeeperDir",
+                                                        "width": "75px",
+                                                        "add": 0
+                                                    }
+                                                ],
+                                                "values": []
+                                            }
+                                        ],
+                                        "caption": "Select the target directory"
                                     }
-                                ],
-                                "caption": "Select the target directory"
-                            }
+                                }
+                            ]
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Test Connection",
+                            "onClick": "CSV_UITestConnection($id);"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Send File Now",
+                            "onClick": "CSV_SendCyclic($id, \"FTP\");"
                         }
                     ]
-                },
-                {
-                    "type": "Button",
-                    "caption": "Test Connection",
-                    "onClick": "CSV_UITestConnection($id);"
                 }
             ]
         }
