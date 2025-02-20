@@ -1,6 +1,15 @@
-[submodule ".style"]
-	path = .style
-	url = https://github.com/symcon/StylePHP
 [submodule "tests/stubs"]
 	path = tests/stubs
 	url = https://github.com/symcon/SymconStubs
+[submodule ".style"]
+	path = .style
+	url = https://github.com/symcon/StylePHP
+[submodule "libs/vendor/paragonie/constant_time_encoding"]
+	path = libs/vendor/paragonie/constant_time_encoding
+	url = https://github.com/paragonie/constant_time_encoding
+[submodule "libs/vendor/paragonie/random_compat"]
+	path = libs/vendor/paragonie/random_compat
+	url = https://github.com/paragonie/random_compat
+[submodule "libs/vendor/phpseclib/phpseclib"]
+	path = libs/vendor/phpseclib/phpseclib
+	url = https://github.com/phpseclib/phpseclib
