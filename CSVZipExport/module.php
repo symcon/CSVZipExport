@@ -415,7 +415,7 @@ class CSVZipExport extends WebHookModule
         $this->SendDebug('path', $contentFile, 0);
         file_put_contents($contentFile, ''); //Create the tempfile
         $list = json_decode($this->ReadPropertyString('SelectedVariables'), true);
-        $getName = function ($variable) use ($list): String
+        $getName = function ($variable) use ($list): string
         {
             foreach ($list as $key => $value) {
                 if ($value['SelectedVariable'] == $variable) {
