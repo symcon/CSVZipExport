@@ -3,6 +3,7 @@
         {
             "type": "Select",
             "name": "ExportOption",
+            "caption": "Export Options",
             "options": [
                 {
                     "caption": "Single File per Variable",
@@ -175,12 +176,12 @@
             "items": [
                 {
                     "type": "CheckBox",
-                    "caption": "Enable sending of cyclic mails",
+                    "caption": "Enable cyclic sending",
                     "name": "IntervalStatus"
                 },
                 {
                     "type": "Select",
-                    "caption": "Mail Interval",
+                    "caption": "Interval",
                     "options": [
                         {
                             "caption": "Hourly",
@@ -207,7 +208,7 @@
                 },
                 {
                     "type": "SelectTime",
-                    "caption": "Time of Mail",
+                    "caption": "Time",
                     "name": "MailTime"
                 },
                 {
