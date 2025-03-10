@@ -1,7 +1,28 @@
 {
     "elements": [
         {
+            "type": "Select",
+            "name": "ExportOption",
+            "caption": "Export Options",
+            "options": [
+                {
+                    "caption": "Single File per Variable",
+                    "value": "single"
+                },
+                {
+                    "caption": "Single File with multiple Variables",
+                    "value": "multi"
+                },
+                {
+                    "caption": "MySQL",
+                    "value": "mysql"
+                }
+            ],
+            "onChange": "CSV_UIChangeExportOption($id, $ExportOption);"
+        },
+        {
             "type": "RowLayout",
+            "name": "FilterRow",
             "items": [
                 {
                     "type": "ValidationTextBox",
@@ -18,12 +39,56 @@
             "visible": false
         },
         {
-            "type": "SelectVariable",
+            "type": "Select",
             "caption": "Logged Variables",
             "options": [],
             "name": "ArchiveVariable",
             "width": "700px",
-            "requiredLogging": 1
+            "requiredLogging": 1,
+            "visible": false
+        },
+        {
+            "type": "List",
+            "add": true,
+            "delete": true,
+            "caption": "Selected Variables",
+            "name": "SelectedVariables",
+            "columns": [
+                {
+                    "add": "",
+                    "caption": "User defined name",
+                    "edit": {
+                        "type": "ValidationTextBox"
+                    },
+                    "name": "UserDefinedName",
+                    "width": "300px"
+                },
+                {
+                    "add": 0,
+                    "caption": "Variable",
+                    "edit": {
+                        "type": "SelectVariable",
+                        "requiredLogging": 1
+                    },
+                    "name": "SelectedVariable",
+                    "width": "150px"
+                }
+            ]
+        },
+        {
+            "type": "Label",
+            "caption": "Single File per Variable will zip in an archive",
+            "name": "SingleInfo"
+        },
+        {
+            "type": "Label",
+            "caption": "Single File with multiple Variables are not compatible with Symcon without edit",
+            "name": "MultiInfo"
+        },
+        {
+            "type": "CheckBox",
+            "name": "ZipFile",
+            "caption": "Create ZIP File"
         },
         {
             "type": "Select",
@@ -95,7 +160,7 @@
         {
             "type": "Button",
             "caption": "Download Export Now",
-            "onClick": "echo CSV_UserExport($id, intval($ArchiveVariable), intval($AggregationStage), $AggregationStart, $AggregationEnd);",
+            "onClick": "echo CSV_UserExport($id, intval($AggregationStage), $AggregationStart, $AggregationEnd);",
             "link": true
         },
         {
@@ -106,62 +171,214 @@
             "visible": false
         },
         {
-            "type": "Label",
-            "caption": " "
-        },
-        {
-            "type": "CheckBox",
-            "caption": "Enable sending of cyclic mails",
-            "name": "IntervalStatus"
-        },
-        {
-            "type": "SelectInstance",
-            "caption": "SMTP-Instance",
-            "name": "SMTPInstance"
-        },
-        {
-            "type": "Select",
-            "caption": "Mail Interval",
-            "options": [
+            "type": "ExpansionPanel",
+            "caption": "Cyclic sending",
+            "items": [
                 {
-                    "caption": "Hourly",
-                    "value": 0
+                    "type": "CheckBox",
+                    "caption": "Enable cyclic sending",
+                    "name": "IntervalStatus"
                 },
                 {
-                    "caption": "Daily",
-                    "value": 1
+                    "type": "Select",
+                    "caption": "Interval",
+                    "options": [
+                        {
+                            "caption": "Hourly",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Daily",
+                            "value": 1
+                        },
+                        {
+                            "caption": "Weekly",
+                            "value": 2
+                        },
+                        {
+                            "caption": "Monthly",
+                            "value": 3
+                        },
+                        {
+                            "caption": "Yearly",
+                            "value": 4
+                        }
+                    ],
+                    "name": "MailInterval"
                 },
                 {
-                    "caption": "Weekly",
-                    "value": 2
+                    "type": "SelectTime",
+                    "caption": "Time",
+                    "name": "MailTime"
                 },
                 {
-                    "caption": "Monthly",
-                    "value": 3
+                    "type": "ExpansionPanel",
+                    "caption": "Mail",
+                    "items": [
+                        {
+                            "type": "CheckBox",
+                            "name": "SendMail",
+                            "caption": "Send per Mail"
+                        },
+                        {
+                            "type": "SelectInstance",
+                            "caption": "SMTP-Instance",
+                            "name": "SMTPInstance"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Send Mail Now",
+                            "onClick": "CSV_SendCyclic($id, \"Mail\");"
+                        }
+                    ]
                 },
                 {
-                    "caption": "Yearly",
-                    "value": 4
+                    "type": "ExpansionPanel",
+                    "caption": "FTP, FTPS, SFTP",
+                    "items": [
+                        {
+                            "type": "CheckBox",
+                            "caption": "Send per SFTP/FTP/FTPS",
+                            "name": "SendFTP"
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "Select",
+                                    "caption": "Connection Type",
+                                    "name": "ConnectionType",
+                                    "options": [
+                                        {
+                                            "caption": "SFTP",
+                                            "value": "SFTP"
+                                        },
+                                        {
+                                            "caption": "FTP",
+                                            "value": "FTP"
+                                        },
+                                        {
+                                            "caption": "FTPS",
+                                            "value": "FTPS"
+                                        }
+                                    ],
+                                    "onChange": "CSV_UIChangePort($id, $ConnectionType);"
+                                },
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "Host",
+                                    "caption": "Host"
+                                },
+                                {
+                                    "type": "NumberSpinner",
+                                    "name": "Port",
+                                    "caption": "Port",
+                                    "minimum": 0
+                                }
+                            ]
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "Username",
+                                    "caption": "Username"
+                                },
+                                {
+                                    "type": "PasswordTextBox",
+                                    "name": "Password",
+                                    "caption": "Password"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "RowLayout",
+                            "items": [
+                                {
+                                    "type": "ValidationTextBox",
+                                    "name": "TargetDir",
+                                    "caption": "Target Directory",
+                                    "value": ""
+                                },
+                                {
+                                    "type": "PopupButton",
+                                    "caption": "Select Directory",
+                                    "onClick": "CSV_UISelectDir($id, $Host, $Port, $Username, $Password, $ConnectionType);",
+                                    "popup": {
+                                        "buttons": [
+                                            {
+                                                "type": "Button",
+                                                "caption": "Assume",
+                                                "onClick": [
+                                                    "CSV_UIAssumeDir(",
+                                                    "$id, ",
+                                                    "isset($SelectTargetDirectory['SelectedDirectory']) ? $CurrentDir.'/'.$SelectTargetDirectory['SelectedDirectory'] : $CurrentDir,",
+                                                    "$Host,",
+                                                    "$Port, ",
+                                                    "$Username,",
+                                                    "$Password,",
+                                                    "$ConnectionType",
+                                                    ");"
+                                                ]
+                                            }
+                                        ],
+                                        "items": [
+                                            {
+                                                "type": "ValidationTextBox",
+                                                "name": "CurrentDir",
+                                                "caption": "Current Directory",
+                                                "value": "",
+                                                "enabled": false
+                                            },
+                                            {
+                                                "type": "List",
+                                                "name": "SelectTargetDirectory",
+                                                "caption": "Select Target Directory",
+                                                "columns": [
+                                                    {
+                                                        "caption": "Directory",
+                                                        "name": "SelectedDirectory",
+                                                        "width": "auto",
+                                                        "add": 0,
+                                                        "confirm": "Go into this Directory?"
+                                                    },
+                                                    {
+                                                        "onClick": "CSV_UIGoDeeper($id,$CurrentDir.'/'.$SelectTargetDirectory['SelectedDirectory'],$Host, $Port, $Username, $Password, $ConnectionType);",
+                                                        "caption": "Go into",
+                                                        "name": "DeeperDir",
+                                                        "width": "75px",
+                                                        "add": 0
+                                                    }
+                                                ],
+                                                "values": []
+                                            }
+                                        ],
+                                        "caption": "Select the target directory"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Test Connection",
+                            "onClick": "CSV_UITestConnection($id);"
+                        },
+                        {
+                            "type": "Button",
+                            "caption": "Send File now",
+                            "onClick": "CSV_SendCyclic($id, \"FTP\");"
+                        }
+                    ]
                 }
-            ],
-            "name": "MailInterval"
-        },
-        {
-            "type": "SelectTime",
-            "caption": "Time of Mail",
-            "name": "MailTime"
-        },
-        {
-            "type": "Button",
-            "caption": "Send Mail Now",
-            "onClick": "CSV_SendMail($id);"
+            ]
         }
     ],
     "status": [
         {
             "code": 201,
             "icon": "error",
-            "caption": "Variable is not selected"
+            "caption": "No Variable is not selected"
         },
         {
             "code": 202,
@@ -172,6 +389,16 @@
             "code": 203,
             "icon": "error",
             "caption": "The selected SMTP-Instance doesn't exist"
+        },
+        {
+            "code": 204,
+            "icon": "error",
+            "caption": "Cyclic sending is active, but no method is selected"
+        },
+        {
+            "code": 205,
+            "icon": "error",
+            "caption": "Can not connected to server via SFTP/FTP/FTPS"
         }
     ]
 }
