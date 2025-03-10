@@ -27,7 +27,7 @@
             "In the appendix you can find the created CSV-File.": "Im Anhang finden Sie die erstellte CSV-Datei.",
             "The selected SMTP-Instance doesn't exist": "Die ausgewählte SMTP-Instanz existiert nicht",
             "Decimal Separator": "Dezimaltrennzeichen",
-            "A Variable is not selected": "Eine Variable ist nicht ausgewählt",
+            "No Variable is not selected": "Eine Variable ist nicht ausgewählt",
             "https://www.symcon.de/en/service/documentation/module-reference/csv-zip-export/": "https://www.symcon.de/de/service/dokumentation/modulreferenz/csv-zip-export/",
             "Dot": "Punkt",
             "Comma": "Komma",
@@ -59,10 +59,13 @@
             "Send per SFTP/FTP/FTPS": "Per SFTP/FTP/FTPS senden",
             "Send File now": "Datei jetzt versenden",
             "Single File with multiple Variables are not compatible with Symcon without edit": "Eine einzelne Datei mit mehreren Variablen ist ohne Bearbeitung nicht mit Symcon kompatibel",
-            "Single File per Variable will zip in a archive": "Eine Datei pro Variable wird immer in ein ZIP-Archive abgelegt",
+            "Single File per Variable will zip in an archive": "Eine Datei pro Variable wird immer in ein ZIP-Archive abgelegt",
             "Export Options": "Export Optionen",
             "Selected Variables": "Ausgewählte Variablen",
-            "User defined name": "Benutzerdefinierter Name"
+            "User defined name": "Benutzerdefinierter Name",
+            "Directory": "Ordner",
+            "Cyclic sending is active, but no method is selected": "Zyklisches senden ist aktive, aber es ist keine Methode ausgewählt",
+            "Can not connected to server via SFTP/FTP/FTPS": "Kann nicht zum Server via FTP/FTPS/SFTP verbinden"
         }
     }
 }

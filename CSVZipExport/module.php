@@ -46,6 +46,7 @@ class CSVZipExport extends WebHookModule
         $this->RegisterPropertyInteger('Port', 22);
         $this->RegisterPropertyString('Username', '');
         $this->RegisterPropertyString('Password', '');
+        $this->RegisterPropertyString('TargetDir', '');
 
         //Timer
         $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
@@ -66,6 +67,7 @@ class CSVZipExport extends WebHookModule
         //Never delete this line!
         parent::ApplyChanges();
 
+        $this->setStatus($this->checkInstanceStatus());
         $this->UpdateCyclicInterval();
     }
     /** Change things in the ConfigurationForm before loading */
@@ -93,7 +95,6 @@ class CSVZipExport extends WebHookModule
         //If the module "SyncMySQL" is installed, get other options
         if (IPS_ModuleExists('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}') && $this->ReadPropertyString('ExportOption') == 'mysql') {
             $jsonForm['elements'][1]['visible'] = true;
-            $jsonForm['elements'][2]['type'] = 'Select';
             $jsonForm['elements'][2]['options'] = $this->GetOptions();
             unset($jsonForm['elements'][2]['requiredLogging']);
         }
@@ -112,7 +113,7 @@ class CSVZipExport extends WebHookModule
         $this->UpdateFormField('ZipFile', 'enabled', $exportOption == 'multi');
         $this->UpdateFormField('MultiInfo', 'visible', $exportOption == 'multi');
     }
-    /*UI Funktion to change the Port base on the connection type */
+    /*UI Function to change the Port base on the connection type */
     public function UIChangePort(string $value): void
     {
         if ($this->ReadPropertyInteger('Port') == 21 || $this->ReadPropertyInteger('Port') == 22) {
@@ -216,20 +217,15 @@ class CSVZipExport extends WebHookModule
     //*---------------*//
 
     /** Handle the export via Button  */
-    public function UserExport(int $ArchiveVariable, int $AggregationStage, string $AggregationStart, string $AggregationEnd)
+    public function UserExport(int $AggregationStage, string $AggregationStart, string $AggregationEnd)
     {
-        if (!IPS_VariableExists($ArchiveVariable)) {
-            $this->SetStatus(201); //for the instance
-            echo $this->Translate('A Variable is not selected');
-            return 'javascript:alert("' . $this->Translate('A Variable is not selected') . ' ");'; //for the Browser
-        }
         $this->UpdateFormField('ExportBar', 'visible', true);
         ini_set('memory_limit', '256M');
         $timeStamp = $this->validTimestamps(true, $AggregationStart, $AggregationEnd);
         $startTimeStamp = $timeStamp[0];
         $endTimeStamp = $timeStamp[1];
 
-        $relativePath = $this->Export($ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp);
+        $relativePath = $this->Export($AggregationStage, $startTimeStamp, $endTimeStamp);
         if ($relativePath !== false) {
             $this->SetStatus(102);
         }
@@ -242,7 +238,7 @@ class CSVZipExport extends WebHookModule
     }
 
     /** Handle the export */
-    public function Export(int $ArchiveVariable, int $AggregationStage, int $startTimeStamp, int $endTimeStamp)
+    public function Export(int $AggregationStage, int $startTimeStamp, int $endTimeStamp)
     {
         $this->SendDebug('Export', $this->archiveID, 0);
         $archiveControlID = IPS_GetInstanceListByModuleID('{43192F0B-135B-4CE7-A0A7-1475603F3060}')[0];
@@ -297,7 +293,7 @@ class CSVZipExport extends WebHookModule
         $startTimeStamp = $timeStamp[0];
         $endTimeStamp = $timeStamp[1];
 
-        $relativePath = $this->Export($archiveVariable, $aggregationStage, $startTimeStamp, $endTimeStamp);
+        $relativePath = $this->Export($aggregationStage, $startTimeStamp, $endTimeStamp);
         $filePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->InstanceID, $this->ReadPropertyBoolean('ZipFile') ? '.zip' : '.csv');
         if ($filePath !== false) {
             $this->SetStatus(102);
@@ -320,8 +316,12 @@ class CSVZipExport extends WebHookModule
      */
     protected function ProcessHookData()
     {
-        //$ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
-        $ArchiveVariable = $this->InstanceID; // TODO Change then Option is Mysql
+        $status = $this->checkInstanceStatus();
+        if ($status != 102) {
+            $this->SetStatus($status);
+            throw new Exception('Instance ist not valid', 1);
+        }
+        $ArchiveVariable = $this->ReadPropertyString('ExportOption') == 'mysql' ? $this->ReadPropertyInteger('ArchiveVariable') : $this->InstanceID;
         $zipped = $this->ReadPropertyBoolean('ZipFile');
         $this->SendDebug('Zipped?', $zipped, 0);
         $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . ($zipped ? $this->GenerateFileName($ArchiveVariable) : $this->GenerateFileName($ArchiveVariable, '.csv'));
@@ -426,12 +426,16 @@ class CSVZipExport extends WebHookModule
         $listValues = []; // [Timestamp => [id => Variables]]
         $variables = [];
         foreach ($list as $key => $entry) {
-            if (!in_array($entry['SelectedVariable'], $variables)) {
-                $variables[] = $entry['SelectedVariable'];
+            $selectedVariable = $entry['SelectedVariable'];
+            if (!in_array($selectedVariable, $variables)) {
+                $variables[] = $selectedVariable;
             }
 
-            $tempVariableFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($entry['SelectedVariable'], '.csv');
-            $this->fetchAllValues($tempVariableFile, $entry['SelectedVariable'], $level, $start, $end, $limit);
+            $tempVariableFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($selectedVariable, '.csv');
+            if (!IPS_VariableExists($selectedVariable)) {
+                continue;
+            }
+            $this->fetchAllValues($tempVariableFile, $selectedVariable, $level, $start, $end, $limit);
             $loggedValues = explode("\n", rtrim(file_get_contents($tempVariableFile)));
             unlink($tempVariableFile);
             foreach ($loggedValues as $value) {
@@ -440,7 +444,7 @@ class CSVZipExport extends WebHookModule
                 if (!array_key_exists($timestamp, $listValues)) {
                     $listValues[$timestamp] = [];
                 }
-                $listValues[$timestamp][$entry['SelectedVariable']] = array_key_exists(1, $value) ? $value[1] : null;
+                $listValues[$timestamp][$selectedVariable] = array_key_exists(1, $value) ? $value[1] : null;
             }
         }
         // sort timestamps
@@ -478,6 +482,10 @@ class CSVZipExport extends WebHookModule
         $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ContentTemp.txt';
         file_put_contents($contentFile, ''); //Create the tempfile
         $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
+        if (!IPS_VariableExists($archiveVariable)) {
+            $this->SetStatus(201);
+            return;
+        }
         $this->fetchAllValues($contentFile, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, $limit);
         $this->zipFile([[$contentFile, $this->GenerateFileName($ArchiveVariable, '.csv')]]);
     }
@@ -494,12 +502,20 @@ class CSVZipExport extends WebHookModule
         $separator = $this->ReadPropertyString('DecimalSeparator');
         foreach ($list as $key => $entry) {
             $selectedVariable = $entry['SelectedVariable'];
+            if (!IPS_VariableExists($selectedVariable)) {
+                continue;
+            }
             $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ContentTemp' . $entry['SelectedVariable'] . '.txt';
             file_put_contents($contentFile, ''); //Create the tempfile
             $this->fetchAllValues($contentFile, $selectedVariable, $level, $start, $end, $limit);
             $exportFiles[] = [$contentFile, $this->GenerateFileName($selectedVariable, '.csv', $entry['UserDefinedName'])];
         }
-        $this->zipFile($exportFiles);
+        if (count($exportFiles) !== 0) {
+            $this->zipFile($exportFiles);
+        }else {
+            $this->setStatus(201);
+        }
+
         IPS_SemaphoreLeave('MultiFileZip');
     }
 
@@ -546,6 +562,7 @@ class CSVZipExport extends WebHookModule
         while ($loopAgain) {
             $content = '';
             $loggedValues = $this->fetchArchiveData($variable, $level, $start, $end, $limit);
+
             $loopAgain = count($loggedValues) == $limit;
 
             if ($level == 7) {//Protect values to duplicate on limit border
@@ -591,6 +608,7 @@ class CSVZipExport extends WebHookModule
      */
     private function validTimestamps(bool $type, string $AggregationStart, string $AggregationEnd): array
     {
+        $this->SendDebug('Aggregation start', $AggregationStart, 0);
         $jsonToTimestamp = function ($time)
         {
             $time = json_decode($time, true);
@@ -602,6 +620,7 @@ class CSVZipExport extends WebHookModule
         if ($type) { //UserExport
             $startTimeStamp = $jsonToTimestamp($AggregationStart);
             $endTimeStamp = $jsonToTimestamp($AggregationEnd);
+            $this->SendDebug('StartTimeUser', $startTimeStamp, 0);
         } else { //SendMail/FTP
             switch ($this->ReadPropertyInteger('MailInterval')) {
                 case 0: //Hourly
@@ -625,6 +644,7 @@ class CSVZipExport extends WebHookModule
                     $endTimeStamp = strtotime('first day of January this year 00:00:00');
                     break;
             }
+            $this->SendDebug('StartTimeCyclic', $startTimeStamp, 0);
         }
         return [$startTimeStamp, $endTimeStamp];
     }
@@ -687,34 +707,33 @@ class CSVZipExport extends WebHookModule
         if ($this->ReadPropertyBoolean('IntervalStatus')) {
             $mailInterval = $this->ReadPropertyInteger('MailInterval');
             $time = json_decode($this->ReadPropertyString('MailTime'), true);
-            $mailTime = sprintf('%02d:%02d:%02d', $time['hour'], $time['minute'], $time['second']);
-            $mailDate = 0;
+            $date = 0;
             switch ($mailInterval) {
                 case 0: // Hourly
-                    $mailDate = strtotime(date('H', strtotime('+ 1 hour')) . ':' . $time['minute'] . ':' . $time['second']);
-                    $this->SendDebug('Next Dispatch (Hourly)', date('d.m.Y H:i:s', $mailDate), 0);
+                    $date = strtotime(date('H', strtotime('+ 1 hour')) . ':' . $time['minute'] . ':' . $time['second']);
+                    $this->SendDebug('Next Dispatch (Hourly)', date('d.m.Y H:i:s', $date), 0);
                     break;
 
                 case 1: //Daily
-                    $mailDate = strtotime('tomorrow ' . $mailTime);
-                    $this->SendDebug('Next Dispatch (Daily)', date('d.m.Y H:i:s', $mailDate), 0);
+                    $date = strtotime('tomorrow ' . $time);
+                    $this->SendDebug('Next Dispatch (Daily)', date('d.m.Y H:i:s', $date), 0);
                     break;
 
                 case 2: // Weekly
-                    $mailDate = strtotime('next week ' . $mailTime);
-                    $this->SendDebug('Next Dispatch (Week)', date('d.m.Y H:i:s', $mailDate), 0);
+                    $date = strtotime('next week ' . $time);
+                    $this->SendDebug('Next Dispatch (Week)', date('d.m.Y H:i:s', $date), 0);
                     break;
 
                 case 3: //Monthly
-                    $mailDate = strtotime('first day of next month ' . $mailTime);
-                    $this->SendDebug('Next Dispatch (Month)', date('d.m.Y H:i:s', $mailDate), 0);
+                    $date = strtotime('first day of next month ' . $time);
+                    $this->SendDebug('Next Dispatch (Month)', date('d.m.Y H:i:s', $date), 0);
                     break;
                 case 4: //Yearly
-                    $mailDate = strtotime('first day of January next year' . $mailTime);
-                    $this->SendDebug('Next Dispatch (Year)', date('d.m.Y H:i:s', $mailDate), 0);
+                    $date = strtotime('first day of January next year' . $time);
+                    $this->SendDebug('Next Dispatch (Year)', date('d.m.Y H:i:s', $date), 0);
                     break;
             }
-            $difference = $mailDate - time();
+            $difference = $date - time();
 
             $this->SetTimerInterval('MailTimer', $difference * 1000);
         } else {
@@ -765,7 +784,7 @@ class CSVZipExport extends WebHookModule
             $this->UpdateFormField('InformationLabel', 'caption', $this->Translate($th->getMessage()));
             $this->UpdateFormField('Progress', 'visible', false);
             if (!$showError) {
-                $this->SetStatus(203);
+                $this->SetStatus(205);
             } else {
                 echo $this->Translate($th->getMessage());
             }
@@ -775,7 +794,7 @@ class CSVZipExport extends WebHookModule
             $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Username/Password is invalid'));
             $this->UpdateFormField('Progress', 'visible', false);
             if (!$showError) {
-                $this->SetStatus(201);
+                $this->SetStatus(205);
             } else {
                 echo $this->Translate('Username/Password is invalid');
             }
@@ -818,8 +837,8 @@ class CSVZipExport extends WebHookModule
             foreach ($files as $file) {
                 $this->SendDebug('File', print_r($file, true), 0);
                 $zip->addFile(
-                    $file[0],
-                    $file[1]
+                    $file[0], //Path
+                    $file[1] // Name
                 );
             }
             $zip->close();
@@ -832,6 +851,49 @@ class CSVZipExport extends WebHookModule
         }
         $this->SendDebug('ZipFile Complete', $tempfile, 0);
         return $tempfile;
+    }
+
+    /** Check the Status of critical things for the instance */
+    private function checkInstanceStatus(): int
+    {
+        // Look if all Variables are valid
+        if (!$this->checkVariables()) {
+            return 201;
+        }
+        // Look if cyclic sending is true, if Mail or FTP/FTPS/SFTP is true
+        if ($this->ReadPropertyBoolean('IntervalStatus')) {
+            if (!$this->ReadPropertyBoolean('SendMail') && !$this->ReadPropertyBoolean('SendFTP')) {
+                return 204;
+            }
+            // If Mail is true, is the SMTP Instance selected and valid
+            if ($this->ReadPropertyBoolean('SendMail')) {
+                $smtpInstanceID = $this->ReadPropertyInteger('SMTPInstance');
+                if (!@IPS_InstanceExists($smtpInstanceID)) {
+                    return 203;
+                }
+                if (@IPS_GetInstance($smtpInstanceID)['ModuleInfo']['ModuleID'] != '{375EAF21-35EF-4BC4-83B3-C780FD8BD88A}') {
+                    return 202;
+                }
+            }
+            // If FTP/FTPS/SFTP is true, is the Connection valid?
+            if ($this->ReadPropertyBoolean('SendFTP')) {
+
+                try {
+                    $connection = $this->createConnectionEx(
+                        $this->ReadPropertyString('Host'),
+                        $this->ReadPropertyInteger('Port'),
+                        $this->ReadPropertyString('Username'),
+                        $this->ReadPropertyString('Password'),
+                        $this->ReadPropertyString('ConnectionType'),
+                        true,
+                    );
+                    $connection->disconnect();
+                } catch (\Throwable $th) {
+                    return 205;
+                }
+            }
+        }
+        return 102;
     }
 
 }

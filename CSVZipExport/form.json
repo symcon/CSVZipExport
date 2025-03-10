@@ -39,7 +39,7 @@
             "visible": false
         },
         {
-            "type": "SelectVariable",
+            "type": "Select",
             "caption": "Logged Variables",
             "options": [],
             "name": "ArchiveVariable",
@@ -77,7 +77,7 @@
         },
         {
             "type": "Label",
-            "caption": "Single File per Variable will zip in a archive",
+            "caption": "Single File per Variable will zip in an archive",
             "name": "SingleInfo"
         },
         {
@@ -160,7 +160,7 @@
         {
             "type": "Button",
             "caption": "Download Export Now",
-            "onClick": "echo CSV_UserExport($id, intval($ArchiveVariable), intval($AggregationStage), $AggregationStart, $AggregationEnd);",
+            "onClick": "echo CSV_UserExport($id, intval($AggregationStage), $AggregationStart, $AggregationEnd);",
             "link": true
         },
         {
@@ -344,7 +344,7 @@
                                                         "confirm": "Go into this Directory?"
                                                     },
                                                     {
-                                                        "onClick": "SB_UIGoDeeper($id,$CurrentDir.'/'.$SelectTargetDirectory['SelectedDirectory'],$Host, $Port, $Username, $Password, $ConnectionType);",
+                                                        "onClick": "CSV_UIGoDeeper($id,$CurrentDir.'/'.$SelectTargetDirectory['SelectedDirectory'],$Host, $Port, $Username, $Password, $ConnectionType);",
                                                         "caption": "Go into",
                                                         "name": "DeeperDir",
                                                         "width": "75px",
@@ -378,7 +378,7 @@
         {
             "code": 201,
             "icon": "error",
-            "caption": "A Variable is not selected"
+            "caption": "No Variable is not selected"
         },
         {
             "code": 202,
@@ -389,6 +389,16 @@
             "code": 203,
             "icon": "error",
             "caption": "The selected SMTP-Instance doesn't exist"
+        },
+        {
+            "code": 204,
+            "icon": "error",
+            "caption": "Cyclic sending is active, but no method is selected"
+        },
+        {
+            "code": 205,
+            "icon": "error",
+            "caption": "Can not connected to server via SFTP/FTP/FTPS"
         }
     ]
 }
