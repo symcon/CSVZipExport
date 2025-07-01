@@ -2,7 +2,15 @@
     "require": {
         "phpseclib/phpseclib": "~3.0"
     },
-    "config":{
-        "vendor-dir": "libs"
+    "config": {
+        "vendor-dir": "libs/vendor"
+    },
+    "autoload": {
+    }
+,
+    "extra": {
+        "phpseclib": {
+            "package-directory": "libs/phpseclib"
+        }
     }
 }
