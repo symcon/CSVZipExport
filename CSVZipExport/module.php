@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../libs/vendor/autoload.php';
+include_once __DIR__ . '/../libs/vendor/autoload.php';
+use phpseclib3\Net\SFTP;
+
 include_once __DIR__ . '/../libs/WebHookModule.php';
 include_once __DIR__ . '/../libs/FTP.php';
 include_once __DIR__ . '/../libs/FTPS.php';
-use phpseclib3\Net\SFTP;
 
 class CSVZipExport extends WebHookModule
 {
