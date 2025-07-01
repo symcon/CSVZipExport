@@ -164,11 +164,27 @@
             "link": true
         },
         {
-            "type": "ProgressBar",
-            "name": "ExportBar",
-            "indeterminate": true,
-            "caption": "Exporting . . .",
-            "visible": false
+            "type": "PopupAlert",
+            "name": "ProgressAlert",
+            "visible": false,
+            "popup": {
+                "closeCaption": "Ok",
+                "items": [
+                    {
+                        "type": "Label",
+                        "name": "InformationLabel",
+                        "caption": "",
+                        "visible": true
+                    },
+                    {
+                        "type": "ProgressBar",
+                        "name": "ExportBar",
+                        "indeterminate": true,
+                        "caption": "Exporting...",
+                        "visible": true
+                    }
+                ]
+            }
         },
         {
             "type": "ExpansionPanel",

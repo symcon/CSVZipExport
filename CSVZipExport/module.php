@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-include_once __DIR__ . '/../libs/WebHookModule.php';
 include_once __DIR__ . '/../libs/vendor/autoload.php';
+include_once __DIR__ . '/../libs/WebHookModule.php';
 include_once __DIR__ . '/../libs/FTP.php';
 include_once __DIR__ . '/../libs/FTPS.php';
 use phpseclib3\Net\SFTP;
@@ -200,17 +200,24 @@ class CSVZipExport extends WebHookModule
     public function UITestConnection()
     {
         $this->UpdateFormField('ProgressAlert', 'visible', true);
-        $connection = $this->createConnectionEx(
-            $this->ReadPropertyString('Host'),
-            $this->ReadPropertyInteger('Port'),
-            $this->ReadPropertyString('Username'),
-            $this->ReadPropertyString('Password'),
-            $this->ReadPropertyString('ConnectionType'),
-            true,
-        );
-        if ($connection !== false) {
+        try {
+            $connection = $this->createConnectionEx(
+                $this->ReadPropertyString('Host'),
+                $this->ReadPropertyInteger('Port'),
+                $this->ReadPropertyString('Username'),
+                $this->ReadPropertyString('Password'),
+                $this->ReadPropertyString('ConnectionType'),
+                true,
+            );
+        } catch (\Throwable $th) {
+            $this->UpdateFormField('InformationLabel', 'caption', $th->getMessage());
+            $this->UpdateFormField('ExportBar', 'visible', false);
+            return;
+        }
+
+        if ($connection) {
             $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Connection is valid'));
-            $this->UpdateFormField('Progress', 'visible', false);
+            $this->UpdateFormField('ExportBar', 'visible', false);
             $connection->disconnect();
         }
     }
@@ -283,6 +290,14 @@ class CSVZipExport extends WebHookModule
     public function SendCyclic(string $fromForm = '')
     {
         $archiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
+        $this->UpdateFormField('ProgressAlert', 'visible', true);
+        $this->UpdateFormField('InformationLabel', 'caption', '');
+        $this->UpdateFormField('ExportBar', 'visible', true);
+
+        if ($this->GetStatus() != 102) {
+            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Instance is not valid'));
+            return;
+        }
         if (!$this->checkVariables()) {
             echo $this->Translate('A Variable is not selected');
             $this->SetStatus(201);
@@ -359,7 +374,9 @@ class CSVZipExport extends WebHookModule
 
         $subject = sprintf($this->Translate('Summary of %s (%s to %s)'), IPS_GetName($this->InstanceID), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationStart')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationEnd')));
         if (SMTP_SendMailAttachment($smtpInstanceID, $subject, $this->Translate('In the appendix you can find the created CSV-File.'), $absolutePath)) {
-            echo $this->Translate('Done');
+
+            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Done'));
+            $this->UpdateFormField('ExportBar', 'visible', false);
         }
 
     }
@@ -390,6 +407,7 @@ class CSVZipExport extends WebHookModule
 
             // transfer file
             try {
+                $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Transfer File'));
                 $connection->put($absolutePath, $absolutePath, SFTP::SOURCE_LOCAL_FILE);
             } catch (\Throwable $th) {
                 $connection->disconnect();
@@ -398,8 +416,10 @@ class CSVZipExport extends WebHookModule
             }
             $connection->disconnect();
             IPS_SemaphoreLeave('SendCSV');
+            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Done'));
+            $this->UpdateFormField('ExportBar', 'visible', false);
         }else {
-            $this->SendDebug('An other Connection is running');
+            $this->SendDebug('Connection', 'An other Connection is running', 0);
         }
     }
 
@@ -757,8 +777,8 @@ class CSVZipExport extends WebHookModule
     /** Connection for FTP & co */
     private function createConnectionEx(string $host, int $port, string $username, string $password, string $connectionType, bool $showError)
     {
-        $this->UpdateFormField('Progress', 'visible', true);
-        $this->UpdateFormField('Progress', 'caption', $this->Translate('Wait on connection'));
+        $this->UpdateFormField('ExportBar', 'visible', true);
+        $this->UpdateFormField('ExportBar', 'caption', $this->Translate('Wait on connection'));
         //Create Connection
         try {
             switch ($connectionType) {
@@ -782,17 +802,15 @@ class CSVZipExport extends WebHookModule
         } catch (\Throwable $th) {
             //Throw than the initial of FTP or FTPS connection failed
             $this->UpdateFormField('InformationLabel', 'caption', $this->Translate($th->getMessage()));
-            $this->UpdateFormField('Progress', 'visible', false);
+            $this->UpdateFormField('ExportBar', 'visible', false);
             if (!$showError) {
                 $this->SetStatus(205);
-            } else {
-                echo $this->Translate($th->getMessage());
             }
             return false;
         }
         if ($connection->login($username, $password) === false) {
             $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Username/Password is invalid'));
-            $this->UpdateFormField('Progress', 'visible', false);
+            $this->UpdateFormField('ExportBar', 'visible', false);
             if (!$showError) {
                 $this->SetStatus(205);
             } else {

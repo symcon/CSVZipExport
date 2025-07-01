@@ -65,7 +65,9 @@
             "User defined name": "Benutzerdefinierter Name",
             "Directory": "Ordner",
             "Cyclic sending is active, but no method is selected": "Zyklisches senden ist aktive, aber es ist keine Methode ausgewählt",
-            "Can not connected to server via SFTP/FTP/FTPS": "Kann nicht zum Server via FTP/FTPS/SFTP verbinden"
+            "Can not connected to server via SFTP/FTP/FTPS": "Kann nicht zum Server via FTP/FTPS/SFTP verbinden",
+            "Instance is not valid": "Instanze ist nicht valide",
+            "Transfer File": "Verschiebe Datei"
         }
     }
 }
