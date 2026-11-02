@@ -424,7 +424,7 @@
         {
             "code": 205,
             "icon": "error",
-            "caption": "Can not connected to server via SFTP/FTP/FTPS"
+            "caption": "Can not connect to the server via SFTP/FTP/FTPS"
         },
         {
             "code": 206,
