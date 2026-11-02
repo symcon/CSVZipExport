@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 class FTP
 {
+    //Seconds to wait for the server, same as SFTP
+    public const TIMEOUT = 10;
+
     public $connection;
 
     public function __construct($host, $port)
     {
-        $this->connection = ftp_connect($host, $port);
+        $this->connection = ftp_connect($host, $port, self::TIMEOUT);
         if (!$this->connection) {
             throw new ErrorException('Error: Host/Port is invalid', 10060);
         }
@@ -150,7 +153,12 @@ class FTP
     public function login(string $username, string $password)
     {
         //Return false like SFTP if the credentials are invalid
-        return @ftp_login($this->connection, $username, $password);
+        if (!@ftp_login($this->connection, $username, $password)) {
+            return false;
+        }
+        //Active mode does not work if the server cannot connect back (NAT, firewall). Most servers like a Synology NAS support passive mode
+        ftp_pasv($this->connection, true);
+        return true;
     }
 
     public function disconnect()
