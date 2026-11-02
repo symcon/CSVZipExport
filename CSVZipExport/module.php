@@ -729,7 +729,7 @@ class CSVZipExport extends WebHookModule
                     $endTimeStamp = strtotime('today');
                     break;
                 case 2: //Weekly
-                    $endTimeStamp = strtotime('previous monday');
+                    $endTimeStamp = strtotime('monday this week'); //On a monday it is today, "previous monday" would be a week earlier
                     $startTimeStamp = strtotime('-1 week', $endTimeStamp);
                     break;
                 case 3: //Monthly
@@ -741,6 +741,8 @@ class CSVZipExport extends WebHookModule
                     $endTimeStamp = strtotime('first day of January this year 00:00:00');
                     break;
             }
+            //The archive includes the end, but it is the first value of the current interval
+            $endTimeStamp--;
             $this->SendDebug('StartTimeCyclic', $startTimeStamp, 0);
         }
         return [$startTimeStamp, $endTimeStamp];
