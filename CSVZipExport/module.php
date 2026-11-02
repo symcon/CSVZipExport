@@ -804,7 +804,8 @@ class CSVZipExport extends WebHookModule
             $date = 0;
             switch ($mailInterval) {
                 case 0: // Hourly
-                    $date = strtotime(date('H', strtotime('+ 1 hour')) . ':' . $time['minute'] . ':' . $time['second']);
+                    //With the date, so the next hour after 23:00 is on the next day
+                    $date = strtotime(date('Y-m-d H:00:00', strtotime('+1 hour'))) + $time['minute'] * 60 + $time['second'];
                     $this->SendDebug('Next Dispatch (Hourly)', date('d.m.Y H:i:s', $date), 0);
                     break;
 
