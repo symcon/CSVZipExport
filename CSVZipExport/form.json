@@ -288,7 +288,7 @@
                                             "value": "FTPS"
                                         }
                                     ],
-                                    "onChange": "CSV_UIChangePort($id, $ConnectionType);"
+                                    "onChange": "CSV_UIChangePort($id, $ConnectionType, $Port);"
                                 },
                                 {
                                     "type": "ValidationTextBox",

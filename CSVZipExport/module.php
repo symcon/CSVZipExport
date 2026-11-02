@@ -145,23 +145,11 @@ class CSVZipExport extends WebHookModule
         $this->UpdateFormField('ZipFile', 'enabled', $exportOption == 'multi');
         $this->UpdateFormField('MultiInfo', 'visible', $exportOption == 'multi');
     }
-    /*UI Function to change the Port base on the connection type */
-    public function UIChangePort(string $value): void
+    /** UI Function to change the Port of the form based on the connection type, if it is still a default Port */
+    public function UIChangePort(string $connectionType, int $port): void
     {
-        if ($this->ReadPropertyInteger('Port') == 21 || $this->ReadPropertyInteger('Port') == 22) {
-            switch ($value) {
-                case 'SFTP':
-                    $value = 22;
-                    break;
-                case 'FTP':
-                case 'FTPS':
-                    $value = 21;
-                    break;
-                default:
-                    # code...
-                    break;
-            }
-            $this->UpdateFormField('Port', 'value', $value);
+        if ($port == 21 || $port == 22) {
+            $this->UpdateFormField('Port', 'value', $connectionType == 'SFTP' ? 22 : 21);
         }
     }
     /*UI Function to select the Connection Dir */
