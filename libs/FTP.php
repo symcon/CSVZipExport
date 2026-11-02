@@ -28,14 +28,57 @@ class FTP
 
     public function rawlist(string $dir = '.')
     {
+        //MLSD has a standardized format, but not every server supports it
+        $entries = @ftp_mlsd($this->connection, $dir);
+        if ($entries !== false) {
+            return self::parseMLSD($entries);
+        }
         $result = @ftp_rawlist($this->connection, $dir);
         if ($result === false) {
             throw new Exception(error_get_last()['message']);
         }
-        //Prepare Result to match to the SFTP Structure
+        return self::parseList($result);
+    }
+
+    /** Prepare the result of ftp_mlsd to match to the SFTP Structure */
+    public static function parseMLSD(array $entries): array
+    {
+        $dump = [];
+        foreach ($entries as $entry) {
+            $type = strtolower($entry['type'] ?? '');
+            //cdir and pdir are the current and the parent directory
+            if ($type == 'cdir' || $type == 'pdir') {
+                continue;
+            }
+            $dump[] = [
+                'size'     => intval($entry['size'] ?? 0),
+                'type'     => $type == 'dir' ? 2 : 1,
+                'filename' => $entry['name'],
+            ];
+        }
+        return $dump;
+    }
+
+    /** Prepare the result of ftp_rawlist in the Unix or Windows (IIS) format to match to the SFTP Structure */
+    public static function parseList(array $result): array
+    {
         $dump = [];
         foreach ($result as $value) {
+            //Windows: 04-26-23  02:57PM       <DIR>          Public
+            if (preg_match('/^\d{2}-\d{2}-\d{2,4}\s+\d{1,2}:\d{2}\s*(?:AM|PM)?\s+(<DIR>|\d+)\s+(.+)$/i', $value, $matches)) {
+                $isDir = strtoupper($matches[1]) == '<DIR>';
+                $dump[] = [
+                    'size'     => $isDir ? 0 : intval($matches[1]),
+                    'type'     => $isDir ? 2 : 1,
+                    'filename' => $matches[2],
+                ];
+                continue;
+            }
             $info = preg_split("/[\s]+/", $value, 9);
+            //Skip lines like "total 12"
+            if (count($info) < 9) {
+                continue;
+            }
             /*
             Array like SFTP:
             [
@@ -53,11 +96,10 @@ class FTP
              */
             $type = $info[0][0] == 'd' ? '0100' : '0110';
 
-            $mode = substr($info[0], 1);
+            //Permissions like rwxrws--- or with an ACL marker like rwxr-xr-x+
+            $mode = substr($info[0], 1, 9);
             $mode = str_replace('-', '0', $mode);
-            $mode = str_replace('r', '1', $mode);
-            $mode = str_replace('w', '1', $mode);
-            $mode = str_replace('x', '1', $mode);
+            $mode = preg_replace('/[^0]/', '1', $mode);
             $mode = bindec($type . '000' . $mode);
 
             array_push($dump, [
