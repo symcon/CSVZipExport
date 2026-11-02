@@ -10,4 +10,10 @@ Folgende Module beinhaltet das CSVZipExport Repository:
 
 - __CSVZipExport__ ([Dokumentation](https://www.symcon.de/de/service/dokumentation/modulreferenz/csv-zip-export))
 
-Dieses Modul bietet die Möglichkeit, die aggregierten Werte einer Variable als CSV-Datei in einem ZIP-Archiv zu exportieren.
+Dieses Modul bietet die Möglichkeit, die geloggten oder aggregierten Werte mehrerer Variablen als CSV-Dateien zu exportieren:
+
+- __Eine Datei pro Variable__: Jede Variable wird in eine eigene CSV-Datei exportiert, die gemeinsam in einem ZIP-Archiv abgelegt werden.
+- __Eine Datei mit mehreren Variablen__: Alle Variablen werden als Spalten in einer CSV-Datei exportiert, wahlweise in einem ZIP-Archiv.
+- __MySQL__: Ist das Modul SyncMySQL installiert, kann eine geloggte Variable über ihren Ident ausgewählt werden.
+
+Der Export kann direkt heruntergeladen oder zyklisch (stündlich, täglich, wöchentlich, monatlich oder jährlich) per Mail und/oder per SFTP, FTP oder FTPS versendet werden.
