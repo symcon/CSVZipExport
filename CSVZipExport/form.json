@@ -159,8 +159,19 @@
         {
             "type": "Button",
             "caption": "Download Export Now",
-            "onClick": "echo CSV_UserExport($id, intval($AggregationStage), $AggregationStart, $AggregationEnd);",
-            "link": true
+            "onClick": [
+                "$path = CSV_UserExport($id, intval($AggregationStage), $AggregationStart, $AggregationEnd);",
+                "if ($path !== false) {",
+                "    echo 'link:' . $path;",
+                "}"
+            ]
+        },
+        {
+            "type": "ProgressBar",
+            "name": "DownloadBar",
+            "indeterminate": true,
+            "caption": "Exporting...",
+            "visible": false
         },
         {
             "type": "PopupAlert",

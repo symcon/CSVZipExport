@@ -71,7 +71,9 @@
             "Instance is not valid": "Instanze ist nicht valide",
             "Transfer File": "Verschiebe Datei",
             "The target directory does not exist": "Der Zielordner existiert nicht",
-            "The file could not be transferred": "Die Datei konnte nicht übertragen werden"
+            "The file could not be transferred": "Die Datei konnte nicht übertragen werden",
+            "The export failed": "Der Export ist fehlgeschlagen",
+            "The export does not exist anymore. Please export again.": "Der Export existiert nicht mehr. Bitte erneut exportieren."
         }
     }
 }
