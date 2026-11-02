@@ -149,11 +149,8 @@ class FTP
 
     public function login(string $username, string $password)
     {
-        $result = @ftp_login($this->connection, $username, $password);
-        if ($result === false) {
-            throw new Exception(error_get_last()['message']);
-        }
-        return $result;
+        //Return false like SFTP if the credentials are invalid
+        return @ftp_login($this->connection, $username, $password);
     }
 
     public function disconnect()

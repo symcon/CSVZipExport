@@ -14,7 +14,7 @@
             "Monthly": "Monatlich",
             "Yearly": "Jährlich",
             "Download Export Now": "Jetzt Export herunterladen",
-            "Exporting . . .": "Exportiere . . .",
+            "Exporting...": "Exportiere...",
             "Filter": "Filter",
             "Apply Filter": "Filter anwenden",
             "Interval": "Intervall",
@@ -27,11 +27,11 @@
             "In the appendix you can find the created CSV-File.": "Im Anhang finden Sie die erstellte CSV-Datei.",
             "The selected SMTP-Instance doesn't exist": "Die ausgewählte SMTP-Instanz existiert nicht",
             "Decimal Separator": "Dezimaltrennzeichen",
-            "No Variable is not selected": "Eine Variable ist nicht ausgewählt",
+            "No valid variable is selected": "Keine gültige Variable ausgewählt",
             "https://www.symcon.de/en/service/documentation/module-reference/csv-zip-export/": "https://www.symcon.de/de/service/dokumentation/modulreferenz/csv-zip-export/",
             "Dot": "Punkt",
             "Comma": "Komma",
-            "Host/Port is invalid": "Host/Port ist nicht korrekt",
+            "Could not connect to %s:%d": "Verbindung zu %s:%d fehlgeschlagen",
             "There are no directories, we assume the root as target": "Dort sind keine Ordner, root wird als Zielordner übernommen",
             "Connection is valid": "Die Verbindung ist korrekt",
             "Done": "Fertig",
@@ -43,7 +43,9 @@
             "Select Directory": "Suche Zielordner",
             "Assume": "Übernehmen",
             "Current Directory": "Aktueller Zielordner",
-            "Select Target Directory": "Gehe in",
+            "Select Target Directory": "Zielordner auswählen",
+            "Go into this Directory?": "In diesen Ordner wechseln?",
+            "Variable": "Variable",
             "Go into": "Gehe in",
             "Select the target directory": "Wähle den Zielordner",
             "Connection Type": "Verbindungstyp",
@@ -67,7 +69,9 @@
             "Cyclic sending is active, but no method is selected": "Zyklisches senden ist aktive, aber es ist keine Methode ausgewählt",
             "Can not connected to server via SFTP/FTP/FTPS": "Kann nicht zum Server via FTP/FTPS/SFTP verbinden",
             "Instance is not valid": "Instanze ist nicht valide",
-            "Transfer File": "Verschiebe Datei"
+            "Transfer File": "Verschiebe Datei",
+            "The target directory does not exist": "Der Zielordner existiert nicht",
+            "The file could not be transferred": "Die Datei konnte nicht übertragen werden"
         }
     }
 }

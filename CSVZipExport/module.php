@@ -71,6 +71,33 @@ class CSVZipExport extends WebHookModule
         $this->setStatus($this->checkInstanceStatus());
         $this->UpdateCyclicInterval();
     }
+
+    /** Version 1.x only sent a single ArchiveVariable per Mail. Keep such a configuration working */
+    public function Migrate($JSONData)
+    {
+        //Never delete this line!
+        parent::Migrate($JSONData);
+
+        $data = json_decode($JSONData);
+        $configuration = $data->configuration;
+        //The ExportOption does not exist in version 1.x
+        if (isset($configuration->ExportOption)) {
+            return '';
+        }
+        if ($configuration->IntervalStatus ?? false) {
+            $configuration->SendMail = true;
+        }
+        $archiveVariable = $configuration->ArchiveVariable ?? 0;
+        if ($archiveVariable != 0) {
+            if (IPS_ModuleExists('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}')) {
+                $configuration->ExportOption = 'mysql';
+            } else {
+                $configuration->ExportOption = 'single';
+                $configuration->SelectedVariables = json_encode([['UserDefinedName' => '', 'SelectedVariable' => $archiveVariable]]);
+            }
+        }
+        return json_encode($data);
+    }
     /** Change things in the ConfigurationForm before loading */
     public function GetConfigurationForm()
     {
@@ -93,11 +120,15 @@ class CSVZipExport extends WebHookModule
         $jsonForm['elements'][6]['value'] = $option != 'multi' ? true : $this->ReadPropertyBoolean('ZipFile');
         $jsonForm['elements'][6]['enabled'] = $option == 'multi';
 
-        //If the module "SyncMySQL" is installed, get other options
-        if (IPS_ModuleExists('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}') && $this->ReadPropertyString('ExportOption') == 'mysql') {
-            $jsonForm['elements'][1]['visible'] = true;
+        //If the module "SyncMySQL" is installed, the logged variables can be selected by their ident
+        if (IPS_ModuleExists('{7E122824-E4D6-4FF8-8AA1-2B7BB36D5EC9}')) {
             $jsonForm['elements'][2]['options'] = $this->GetOptions();
-            unset($jsonForm['elements'][2]['requiredLogging']);
+        } elseif ($option != 'mysql') {
+            //Without SyncMySQL the variables are selected in the list
+            $jsonForm['elements'][0]['options'] = array_values(array_filter($jsonForm['elements'][0]['options'], function ($exportOption)
+            {
+                return $exportOption['value'] != 'mysql';
+            }));
         }
 
         return json_encode($jsonForm);
@@ -141,7 +172,7 @@ class CSVZipExport extends WebHookModule
 
     public function UIAssumeDir(string $value, string $host, int $port, string $username, string $password, string $connectionType)
     {
-        $connection = $this->createConnectionEx($host, $port, $username, $password, $connectionType, true);
+        $connection = $this->createUIConnection($host, $port, $username, $password, $connectionType);
         if ($connection === false) {
             return;
         }
@@ -152,7 +183,7 @@ class CSVZipExport extends WebHookModule
 
     public function UILoadDir(string $dir, string $host, int $port, string $username, string $password, string $connectionType)
     {
-        $connection = $this->createConnectionEx($host, $port, $username, $password, $connectionType, true);
+        $connection = $this->createUIConnection($host, $port, $username, $password, $connectionType);
         if ($connection === false) {
             return;
         }
@@ -187,7 +218,7 @@ class CSVZipExport extends WebHookModule
 
     public function UIGoDeeper(string $value, string $host, int $port, string $username, string $password, string $connectionType)
     {
-        $connection = $this->createConnectionEx($host, $port, $username, $password, $connectionType, true);
+        $connection = $this->createUIConnection($host, $port, $username, $password, $connectionType);
         if ($connection === false) {
             return;
         }
@@ -208,7 +239,6 @@ class CSVZipExport extends WebHookModule
                 $this->ReadPropertyString('Username'),
                 $this->ReadPropertyString('Password'),
                 $this->ReadPropertyString('ConnectionType'),
-                true,
             );
         } catch (\Throwable $th) {
             $this->UpdateFormField('InformationLabel', 'caption', $th->getMessage());
@@ -262,13 +292,14 @@ class CSVZipExport extends WebHookModule
         return '/hook/zip/' . $this->InstanceID;
     }
 
-    /** Delete the (Zip) File */
+    /** Delete the exported (Zip) File */
     public function DeleteZip()
     {
-        $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
-        $tmpfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($ArchiveVariable);
-        if (file_exists($tmpfile)) {
-            unlink($tmpfile);
+        foreach (['.zip', '.csv'] as $extension) {
+            $tmpfile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->InstanceID, $extension);
+            if (file_exists($tmpfile)) {
+                unlink($tmpfile);
+            }
         }
         $this->SetTimerInterval('DeleteZipTimer', 0);
     }
@@ -287,10 +318,15 @@ class CSVZipExport extends WebHookModule
         $this->UpdateFormField('ArchiveVariable', 'value', $options[0]['value']);
     }
 
+    /** Kept for scripts of version 1.x */
+    public function SendMail()
+    {
+        $this->SendCyclic('Mail');
+    }
+
     /** The function send the export via Email */
     public function SendCyclic(string $fromForm = '')
     {
-        $archiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
         $this->UpdateFormField('ProgressAlert', 'visible', true);
         $this->UpdateFormField('InformationLabel', 'caption', '');
         $this->UpdateFormField('ExportBar', 'visible', true);
@@ -300,7 +336,7 @@ class CSVZipExport extends WebHookModule
             return;
         }
         if (!$this->checkVariables()) {
-            echo $this->Translate('A Variable is not selected');
+            echo $this->Translate('No valid variable is selected');
             $this->SetStatus(201);
             return;
         }
@@ -310,13 +346,13 @@ class CSVZipExport extends WebHookModule
         $endTimeStamp = $timeStamp[1];
 
         $relativePath = $this->Export($aggregationStage, $startTimeStamp, $endTimeStamp);
-        $filePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->InstanceID, $this->ReadPropertyBoolean('ZipFile') ? '.zip' : '.csv');
+        $filePath = $this->getExportPath();
         if ($filePath !== false) {
             $this->SetStatus(102);
         }
 
         if ($this->ReadPropertyBoolean('SendMail') || $fromForm == 'Mail') {
-            $this->sendMail($relativePath, $filePath);
+            $this->sendExportMail($relativePath, $filePath);
         }
         if ($this->ReadPropertyBoolean('SendFTP') || $fromForm == 'FTP') {
             $this->sendFTP($relativePath, $filePath);
@@ -337,19 +373,15 @@ class CSVZipExport extends WebHookModule
             $this->SetStatus($status);
             throw new Exception('Instance ist not valid', 1);
         }
-        $ArchiveVariable = $this->ReadPropertyString('ExportOption') == 'mysql' ? $this->ReadPropertyInteger('ArchiveVariable') : $this->InstanceID;
-        $zipped = $this->ReadPropertyBoolean('ZipFile');
-        $this->SendDebug('Zipped?', $zipped, 0);
-        $path = sys_get_temp_dir() . DIRECTORY_SEPARATOR . ($zipped ? $this->GenerateFileName($ArchiveVariable) : $this->GenerateFileName($ArchiveVariable, '.csv'));
+        $path = $this->getExportPath();
         if (!file_exists($path)) {
-            throw new Exception('File ' . $path . " doesn't Exist", 1);
+            throw new Exception('File ' . basename($path) . " doesn't Exist", 1);
         }
-        $this->SendDebug('ProcessHookData', $path . ' ' . file_exists($path), 0);
-        if ($zipped) {
-            header('Content-Disposition: attachment; filename="' . $this->GenerateFileName($ArchiveVariable) . '"');
+        $this->SendDebug('ProcessHookData', $path, 0);
+        header('Content-Disposition: attachment; filename="' . basename($path) . '"');
+        if ($this->isZipped()) {
             header('Content-Type: application/zip; charset=utf-8;');
-        }else {
-            header('Content-Disposition: attachment; filename="' . $this->GenerateFileName($ArchiveVariable, '.csv') . '"');
+        } else {
             header('Content-Type: text/csv; charset=utf-8;');
         }
         header('Content-Length:' . filesize($path));
@@ -359,7 +391,7 @@ class CSVZipExport extends WebHookModule
     /**
      * Send the Zip / Csv File per Email
      */
-    private function sendMail($relativePath, $absolutePath)
+    private function sendExportMail($relativePath, $absolutePath)
     {
         $smtpInstanceID = $this->ReadPropertyInteger('SMTPInstance');
 
@@ -385,42 +417,56 @@ class CSVZipExport extends WebHookModule
     /** Send ZIP/ CSV per (S)FTP(S) */
     private function sendFTP($relativePath, $absolutePath)
     {
-        // create Connection
-        if (IPS_SemaphoreEnter('SendCSV', 1000)) {
+        $semaphore = 'SendCSV' . $this->InstanceID;
+        if (!IPS_SemaphoreEnter($semaphore, 1000)) {
+            $this->SendDebug('Connection', 'An other Connection is running', 0);
+            return false;
+        }
+        $connection = false;
+        try {
             //Create Connection
-            $connection = $this->createConnection();
-            if ($connection === false) {
-                IPS_SemaphoreLeave('SendCSV');
+            try {
+                $connection = $this->createConnection();
+            } catch (\Throwable $th) {
+                $this->UpdateFormField('InformationLabel', 'caption', $th->getMessage());
+                $this->SetStatus(205);
                 return false;
             }
 
-            //Set the base directory on the remote
+            //Set the base directory on the remote. FTP throws and SFTP returns false if it does not exist
             $baseDir = $this->ReadPropertyString('TargetDir');
-            if ($baseDir != '') {
-                $connection->chdir($baseDir);
-                if ($connection->pwd() != $baseDir) {
-                    $this->SetStatus(202);
-                    $connection->disconnect();
-                    IPS_SemaphoreLeave('SendCSV');
-                    return false;
-                }
+            try {
+                $dirChanged = $baseDir == '' || $connection->chdir($baseDir);
+            } catch (\Throwable $th) {
+                $this->SendDebug('TargetDir', $th->getMessage(), 0);
+                $dirChanged = false;
+            }
+            if (!$dirChanged) {
+                $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('The target directory does not exist'));
+                $this->SetStatus(206);
+                return false;
             }
 
-            // transfer file
+            // transfer file into the target directory
+            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Transfer File'));
             try {
-                $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Transfer File'));
-                $connection->put($absolutePath, $absolutePath, SFTP::SOURCE_LOCAL_FILE);
+                $transferred = $connection->put(basename($absolutePath), $absolutePath, SFTP::SOURCE_LOCAL_FILE);
             } catch (\Throwable $th) {
-                $connection->disconnect();
-                IPS_SemaphoreLeave('SendCSV');
-                throw $th;
+                $this->SendDebug('Transfer', $th->getMessage(), 0);
+                $transferred = false;
             }
-            $connection->disconnect();
-            IPS_SemaphoreLeave('SendCSV');
+            if (!$transferred) {
+                $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('The file could not be transferred'));
+                return false;
+            }
             $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Done'));
             $this->UpdateFormField('ExportBar', 'visible', false);
-        }else {
-            $this->SendDebug('Connection', 'An other Connection is running', 0);
+            return true;
+        } finally {
+            if ($connection !== false) {
+                $connection->disconnect();
+            }
+            IPS_SemaphoreLeave($semaphore);
         }
     }
 
@@ -448,24 +494,26 @@ class CSVZipExport extends WebHookModule
         $variables = [];
         foreach ($list as $key => $entry) {
             $selectedVariable = $entry['SelectedVariable'];
-            if (!in_array($selectedVariable, $variables)) {
-                $variables[] = $selectedVariable;
-            }
-
-            $tempVariableFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($selectedVariable, '.csv');
-            if (!IPS_VariableExists($selectedVariable)) {
+            if (!IPS_VariableExists($selectedVariable) || in_array($selectedVariable, $variables)) {
                 continue;
             }
+            $variables[] = $selectedVariable;
+
+            $tempVariableFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($selectedVariable, '.csv');
             $this->fetchAllValues($tempVariableFile, $selectedVariable, $level, $start, $end, $limit);
             $loggedValues = explode("\n", rtrim(file_get_contents($tempVariableFile)));
             unlink($tempVariableFile);
             foreach ($loggedValues as $value) {
+                //No values in the time range
+                if ($value == '') {
+                    continue;
+                }
                 $value = explode(';', $value);
                 $timestamp = strtotime($value[0]);
                 if (!array_key_exists($timestamp, $listValues)) {
                     $listValues[$timestamp] = [];
                 }
-                $listValues[$timestamp][$selectedVariable] = array_key_exists(1, $value) ? $value[1] : null;
+                $listValues[$timestamp][$selectedVariable] = array_key_exists(1, $value) ? $value[1] : '';
             }
         }
         // sort timestamps
@@ -473,15 +521,15 @@ class CSVZipExport extends WebHookModule
         // sort List of the Variables
         sort($variables);
         // add the Values to content
-        $content .= 'Date;';
-        foreach ($variables as $key => $value) {
-            $content .= $getName($value) . ';';
-        }
-        $content .= "\n";
+        $content .= implode(';', array_merge(['Date'], array_map($getName, $variables))) . "\n";
 
-        foreach ($listValues as $timeStamp => $value) {
-            ksort($value);
-            $content .= date('d.m.Y H:i:s', $timeStamp) . ';' . implode(';', $value) . "\n";
+        foreach ($listValues as $timeStamp => $values) {
+            //Keep the columns aligned, if a variable has no value at this timestamp
+            $row = [date('d.m.Y H:i:s', $timeStamp)];
+            foreach ($variables as $variable) {
+                $row[] = $values[$variable] ?? '';
+            }
+            $content .= implode(';', $row) . "\n";
         }
         $this->SendDebug('Put in File ', $content, 0);
         file_put_contents($contentFile, $content);
@@ -503,7 +551,7 @@ class CSVZipExport extends WebHookModule
         $contentFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ContentTemp.txt';
         file_put_contents($contentFile, ''); //Create the tempfile
         $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
-        if (!IPS_VariableExists($archiveVariable)) {
+        if (!IPS_VariableExists($ArchiveVariable)) {
             $this->SetStatus(201);
             return;
         }
@@ -615,13 +663,6 @@ class CSVZipExport extends WebHookModule
                 }
             }
         }
-        foreach ($endElements as $key => $value) {
-            $avg = is_numeric($value['avg'])
-                ? str_replace('.', $separator, '' . $value['avg'])
-                : $value['avg'];
-            $content .= date('d.m.Y H:i:s', $value['timeStamp']) . ';' . $avg . "\n";
-        }
-        file_put_contents($filePath, $content, FILE_APPEND | LOCK_EX);
     }
 
     /** validate the start and end Timestamp and trim them if necessary
@@ -728,6 +769,7 @@ class CSVZipExport extends WebHookModule
         if ($this->ReadPropertyBoolean('IntervalStatus')) {
             $mailInterval = $this->ReadPropertyInteger('MailInterval');
             $time = json_decode($this->ReadPropertyString('MailTime'), true);
+            $timeString = sprintf('%02d:%02d:%02d', $time['hour'], $time['minute'], $time['second']);
             $date = 0;
             switch ($mailInterval) {
                 case 0: // Hourly
@@ -736,21 +778,21 @@ class CSVZipExport extends WebHookModule
                     break;
 
                 case 1: //Daily
-                    $date = strtotime('tomorrow ' . $time);
+                    $date = strtotime('tomorrow ' . $timeString);
                     $this->SendDebug('Next Dispatch (Daily)', date('d.m.Y H:i:s', $date), 0);
                     break;
 
                 case 2: // Weekly
-                    $date = strtotime('next week ' . $time);
+                    $date = strtotime('next week ' . $timeString);
                     $this->SendDebug('Next Dispatch (Week)', date('d.m.Y H:i:s', $date), 0);
                     break;
 
                 case 3: //Monthly
-                    $date = strtotime('first day of next month ' . $time);
+                    $date = strtotime('first day of next month ' . $timeString);
                     $this->SendDebug('Next Dispatch (Month)', date('d.m.Y H:i:s', $date), 0);
                     break;
                 case 4: //Yearly
-                    $date = strtotime('first day of January next year' . $time);
+                    $date = strtotime('first day of January next year ' . $timeString);
                     $this->SendDebug('Next Dispatch (Year)', date('d.m.Y H:i:s', $date), 0);
                     break;
             }
@@ -771,53 +813,46 @@ class CSVZipExport extends WebHookModule
             $this->ReadPropertyString('Username'),
             $this->ReadPropertyString('Password'),
             $this->ReadPropertyString('ConnectionType'),
-            false,
         );
     }
 
-    /** Connection for FTP & co */
-    private function createConnectionEx(string $host, int $port, string $username, string $password, string $connectionType, bool $showError)
+    /** Connection for the UI functions, shows the error message if the connection fails */
+    private function createUIConnection(string $host, int $port, string $username, string $password, string $connectionType)
+    {
+        try {
+            return $this->createConnectionEx($host, $port, $username, $password, $connectionType);
+        } catch (\Throwable $th) {
+            echo $th->getMessage();
+            return false;
+        }
+    }
+
+    /** Connection for FTP & co. Throws an exception with a translated message if the connection fails */
+    private function createConnectionEx(string $host, int $port, string $username, string $password, string $connectionType)
     {
         $this->UpdateFormField('ExportBar', 'visible', true);
         $this->UpdateFormField('ExportBar', 'caption', $this->Translate('Wait on connection'));
+        if (!in_array($connectionType, ['SFTP', 'FTP', 'FTPS'])) {
+            $this->UpdateFormField('ExportBar', 'visible', false);
+            throw new Exception($this->Translate('The Connection Type is undefined'));
+        }
         //Create Connection
         try {
-            switch ($connectionType) {
-                case 'SFTP':
-                    $connection = new SFTP($host, $port);
-                    break;
-                case 'FTP':
-                    $connection = new FTP($host, $port);
-                    break;
-                case 'FTPS':
-                    $connection = new FTPS($host, $port);
-                    break;
-                default:
-                    if (!$showError) {
-                        $this->SetStatus(201);
-                    } else {
-                        echo $this->Translate('The Connection Type is undefined');
-                    }
-                    break;
-            }
+            $connection = match ($connectionType) {
+                'SFTP' => new SFTP($host, $port),
+                'FTP'  => new FTP($host, $port),
+                'FTPS' => new FTPS($host, $port),
+            };
+            //SFTP connects on login and throws if the host is not reachable
+            $loggedIn = $connection->login($username, $password);
         } catch (\Throwable $th) {
-            //Throw than the initial of FTP or FTPS connection failed
-            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate($th->getMessage()));
+            $this->SendDebug('Connection', $th->getMessage(), 0);
             $this->UpdateFormField('ExportBar', 'visible', false);
-            if (!$showError) {
-                $this->SetStatus(205);
-            }
-            return false;
+            throw new Exception(sprintf($this->Translate('Could not connect to %s:%d'), $host, $port));
         }
-        if ($connection->login($username, $password) === false) {
-            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Username/Password is invalid'));
+        if ($loggedIn === false) {
             $this->UpdateFormField('ExportBar', 'visible', false);
-            if (!$showError) {
-                $this->SetStatus(205);
-            } else {
-                echo $this->Translate('Username/Password is invalid');
-            }
-            return false;
+            throw new Exception($this->Translate('Username/Password is invalid'));
         }
         return $connection;
     }
@@ -829,6 +864,9 @@ class CSVZipExport extends WebHookModule
             return IPS_VariableExists($this->ReadPropertyInteger('ArchiveVariable'));
         }
         $list = json_decode($this->ReadPropertyString('SelectedVariables'), true);
+        if (count($list) == 0) {
+            return false;
+        }
 
         foreach ($list as $key => $entry) {
             if (!IPS_VariableExists($entry['SelectedVariable'])) {
@@ -836,6 +874,18 @@ class CSVZipExport extends WebHookModule
             }
         }
         return true;
+    }
+
+    /** Only the option "Single File with multiple Variables" can be exported without zip */
+    private function isZipped(): bool
+    {
+        return $this->ReadPropertyString('ExportOption') != 'multi' || $this->ReadPropertyBoolean('ZipFile');
+    }
+
+    /** Path of the exported (Zip) File */
+    private function getExportPath(): string
+    {
+        return sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->InstanceID, $this->isZipped() ? '.zip' : '.csv');
     }
 
     /** Zip the files
@@ -904,7 +954,6 @@ class CSVZipExport extends WebHookModule
                         $this->ReadPropertyString('Username'),
                         $this->ReadPropertyString('Password'),
                         $this->ReadPropertyString('ConnectionType'),
-                        true,
                     );
                     $connection->disconnect();
                 } catch (\Throwable $th) {
