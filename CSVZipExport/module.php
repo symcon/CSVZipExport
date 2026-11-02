@@ -350,8 +350,13 @@ class CSVZipExport extends WebHookModule
         $this->UpdateFormField('ExportBar', 'visible', true);
 
         try {
-            //Check the configuration again, so a failed sending is retried on the next interval
-            $status = $this->checkInstanceStatus();
+            //The timer checks the configuration again, so a failed sending is retried on the next interval.
+            //The buttons only need valid variables, their method is checked while sending
+            if ($fromForm == '') {
+                $status = $this->checkInstanceStatus();
+            } else {
+                $status = $this->checkVariables() ? 102 : 201;
+            }
             if ($status != 102) {
                 $this->SetStatus($status);
                 $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Instance is not valid'));
@@ -376,7 +381,8 @@ class CSVZipExport extends WebHookModule
                 $sent = $this->sendFTP($filePath) && $sent;
             }
             if ($sent) {
-                $this->SetStatus(102);
+                //A sending via button must not hide an invalid configuration of the cyclic sending
+                $this->SetStatus($this->checkInstanceStatus());
                 $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Done'));
             }
         } finally {
