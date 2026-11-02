@@ -4,7 +4,7 @@
     "name": "CSVZipExport",
     "url": "https://symcon.de/",
     "compatibility": {
-        "version": "5.0"
+        "version": "7.0"
     },
     "version": "1.4",
     "build": 0,
