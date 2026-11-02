@@ -51,7 +51,7 @@ class CSVZipExport extends WebHookModule
 
         //Timer
         $this->RegisterTimer('DeleteZipTimer', 0, 'CSV_DeleteZip($_IPS[\'TARGET\']);');
-        $this->RegisterTimer('MailTimer', 0, 'CSV_SendCyclic($_IPS[\'TARGET\']);');
+        $this->RegisterTimer('MailTimer', 0, 'CSV_SendCyclic($_IPS[\'TARGET\'], \'\');');
 
         $this->DeleteZip();
 
@@ -340,9 +340,10 @@ class CSVZipExport extends WebHookModule
 
     /**
      * Send the export of the last interval per Mail and/or FTP.
-     * Called by the timer without $fromForm, by the buttons with "Mail" or "FTP" to only use that method
+     * Called by the timer with an empty $fromForm, by the buttons with "Mail" or "FTP" to only use that method.
+     * Symcon ignores default values of parameters, so $fromForm is always required
      */
-    public function SendCyclic(string $fromForm = '')
+    public function SendCyclic(string $fromForm)
     {
         $this->UpdateFormField('ProgressAlert', 'visible', true);
         $this->UpdateFormField('InformationLabel', 'caption', '');
