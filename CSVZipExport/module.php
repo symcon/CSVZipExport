@@ -255,7 +255,7 @@ class CSVZipExport extends WebHookModule
     //*---------------*//
 
     /** Handle the export via Button. Returns the relative path for the download or false */
-    public function UserExport(int $AggregationStage, string $AggregationStart, string $AggregationEnd)
+    public function UIExport(int $AggregationStage, string $AggregationStart, string $AggregationEnd)
     {
         if (!$this->checkVariables()) {
             $this->SetStatus(201);
@@ -268,7 +268,7 @@ class CSVZipExport extends WebHookModule
         $startTimeStamp = $timeStamp[0];
         $endTimeStamp = $timeStamp[1];
 
-        $relativePath = $this->Export($AggregationStage, $startTimeStamp, $endTimeStamp);
+        $relativePath = $this->ExportVariables($AggregationStage, $startTimeStamp, $endTimeStamp);
         sleep(1);
         $this->UpdateFormField('DownloadBar', 'visible', false);
         if ($relativePath === false) {
@@ -282,28 +282,40 @@ class CSVZipExport extends WebHookModule
         return $relativePath;
     }
 
-    /** Handle the export. Returns the relative path for the download or false */
-    public function Export(int $AggregationStage, int $startTimeStamp, int $endTimeStamp)
+    /** Kept for scripts of version 1.x. Export a single variable with the times of the form. Returns the relative path for the download or false */
+    public function UserExport(int $ArchiveVariable, int $AggregationStage, string $AggregationStart, string $AggregationEnd)
+    {
+        $timeStamp = $this->validTimestamps(true, $AggregationStart, $AggregationEnd);
+        $relativePath = $this->Export($ArchiveVariable, $AggregationStage, $timeStamp[0], $timeStamp[1]);
+        if ($relativePath !== false) {
+            //Reset ZipDeleteTimer
+            $this->SetTimerInterval('DeleteZipTimer', 1000 * 60 * 60);
+        }
+        return $relativePath;
+    }
+
+    /** Export the variables of the configuration. Returns the relative path for the download or false */
+    public function ExportVariables(int $AggregationStage, int $startTimeStamp, int $endTimeStamp)
     {
         $limit = IPS_GetOption('ArchiveRecordLimit');
-
-        //Exports of the same instance write the same files
-        $semaphore = 'CSVExport' . $this->InstanceID;
-        if (!IPS_SemaphoreEnter($semaphore, 30000)) {
-            $this->SendDebug('Export', 'An other export is running', 0);
-            return false;
-        }
-        try {
-            $exported = match ($this->ReadPropertyString('ExportOption')) {
+        return $this->runExport(function () use ($AggregationStage, $startTimeStamp, $endTimeStamp, $limit)
+        {
+            return match ($this->ReadPropertyString('ExportOption')) {
                 'single' => $this->ExportMultiFile($AggregationStage, $startTimeStamp, $endTimeStamp, $limit),
                 'multi'  => $this->ExportSingleFile($AggregationStage, $startTimeStamp, $endTimeStamp, $limit),
-                'mysql'  => $this->ExportMySQL($AggregationStage, $startTimeStamp, $endTimeStamp, $limit),
+                'mysql'  => $this->ExportSingleVariable($this->ReadPropertyInteger('ArchiveVariable'), $AggregationStage, $startTimeStamp, $endTimeStamp, $limit),
             };
-        } finally {
-            IPS_SemaphoreLeave($semaphore);
-        }
+        });
+    }
 
-        return $exported ? '/hook/zip/' . $this->InstanceID : false;
+    /** Export a single variable to a Zip File like version 1.x. Returns the relative path for the download or false */
+    public function Export(int $ArchiveVariable, int $AggregationStage, int $AggregationStart, int $AggregationEnd)
+    {
+        $limit = IPS_GetOption('ArchiveRecordLimit');
+        return $this->runExport(function () use ($ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd, $limit)
+        {
+            return $this->ExportSingleVariable($ArchiveVariable, $AggregationStage, $AggregationStart, $AggregationEnd, $limit);
+        });
     }
 
     /** Delete the exported (Zip) File */
@@ -362,7 +374,7 @@ class CSVZipExport extends WebHookModule
             $startTimeStamp = $timeStamp[0];
             $endTimeStamp = $timeStamp[1];
 
-            if ($this->Export($aggregationStage, $startTimeStamp, $endTimeStamp) === false) {
+            if ($this->ExportVariables($aggregationStage, $startTimeStamp, $endTimeStamp) === false) {
                 $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('The export failed'));
                 return;
             }
@@ -400,7 +412,7 @@ class CSVZipExport extends WebHookModule
         }
         $this->SendDebug('ProcessHookData', $path, 0);
         header('Content-Disposition: attachment; filename="' . basename($path) . '"');
-        if ($this->isZipped()) {
+        if (str_ends_with($path, '.zip')) {
             header('Content-Type: application/zip; charset=utf-8;');
         } else {
             header('Content-Type: text/csv; charset=utf-8;');
@@ -561,18 +573,35 @@ class CSVZipExport extends WebHookModule
     /**
      * Export a single Variable to a file that wrapped with a zip Archive
      */
-    private function ExportMySQL($AggregationStage, $startTimeStamp, $endTimeStamp, $limit): bool
+    private function ExportSingleVariable(int $variableID, $AggregationStage, $startTimeStamp, $endTimeStamp, $limit): bool
     {
-        $this->SendDebug('Mysql', '', 0);
-        $ArchiveVariable = $this->ReadPropertyInteger('ArchiveVariable');
-        if (!IPS_VariableExists($ArchiveVariable)) {
-            $this->SetStatus(201);
+        $this->SendDebug('Variable', $variableID, 0);
+        if (!IPS_VariableExists($variableID)) {
             return false;
         }
-        $contentFile = $this->getTempFile($ArchiveVariable);
-        $this->fetchAllValues($contentFile, $ArchiveVariable, $AggregationStage, $startTimeStamp, $endTimeStamp, $limit);
-        $this->zipFile([[$contentFile, $this->GenerateFileName($ArchiveVariable, '.csv')]]);
+        $contentFile = $this->getTempFile($variableID);
+        $this->fetchAllValues($contentFile, $variableID, $AggregationStage, $startTimeStamp, $endTimeStamp, $limit);
+        $this->zipFile([[$contentFile, $this->GenerateFileName($variableID, '.csv')]]);
         return true;
+    }
+
+    /** Exports of the same instance write the same files, so only one export runs at a time */
+    private function runExport(callable $export)
+    {
+        $semaphore = 'CSVExport' . $this->InstanceID;
+        if (!IPS_SemaphoreEnter($semaphore, 30000)) {
+            $this->SendDebug('Export', 'An other export is running', 0);
+            return false;
+        }
+        try {
+            //Delete the previous export, so only the new Zip or Csv File exists
+            $this->DeleteZip();
+            $exported = $export();
+        } finally {
+            IPS_SemaphoreLeave($semaphore);
+        }
+
+        return $exported ? '/hook/zip/' . $this->InstanceID : false;
     }
 
     /**
@@ -882,16 +911,14 @@ class CSVZipExport extends WebHookModule
         return true;
     }
 
-    /** Only the option "Single File with multiple Variables" can be exported without zip */
-    private function isZipped(): bool
-    {
-        return $this->ReadPropertyString('ExportOption') != 'multi' || $this->ReadPropertyBoolean('ZipFile');
-    }
-
-    /** Path of the exported (Zip) File */
+    /**
+     * Path of the exported (Zip) File. Only "Single File with multiple Variables" can be exported without zip.
+     * CSV_Export always creates a Zip File, so check which file the last export created
+     */
     private function getExportPath(): string
     {
-        return sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->InstanceID, $this->isZipped() ? '.zip' : '.csv');
+        $zipPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->InstanceID);
+        return file_exists($zipPath) ? $zipPath : sys_get_temp_dir() . DIRECTORY_SEPARATOR . $this->GenerateFileName($this->InstanceID, '.csv');
     }
 
     /** Temporary file for the values of a variable, unique per instance */

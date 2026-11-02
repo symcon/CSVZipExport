@@ -160,7 +160,7 @@
             "type": "Button",
             "caption": "Download Export Now",
             "onClick": [
-                "$path = CSV_UserExport($id, intval($AggregationStage), $AggregationStart, $AggregationEnd);",
+                "$path = CSV_UIExport($id, intval($AggregationStage), $AggregationStart, $AggregationEnd);",
                 "if ($path !== false) {",
                 "    echo 'link:' . $path;",
                 "}"
