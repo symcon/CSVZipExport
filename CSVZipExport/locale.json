@@ -73,6 +73,7 @@
             "The target directory does not exist": "Der Zielordner existiert nicht",
             "The file could not be transferred": "Die Datei konnte nicht übertragen werden",
             "The export failed": "Der Export ist fehlgeschlagen",
+            "The mail could not be sent": "Die Mail konnte nicht versendet werden",
             "The export does not exist anymore. Please export again.": "Der Export existiert nicht mehr. Bitte erneut exportieren."
         }
     }

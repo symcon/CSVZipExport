@@ -338,43 +338,52 @@ class CSVZipExport extends WebHookModule
         $this->SendCyclic('Mail');
     }
 
-    /** The function send the export via Email */
+    /**
+     * Send the export of the last interval per Mail and/or FTP.
+     * Called by the timer without $fromForm, by the buttons with "Mail" or "FTP" to only use that method
+     */
     public function SendCyclic(string $fromForm = '')
     {
         $this->UpdateFormField('ProgressAlert', 'visible', true);
         $this->UpdateFormField('InformationLabel', 'caption', '');
         $this->UpdateFormField('ExportBar', 'visible', true);
 
-        if ($this->GetStatus() != 102) {
-            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Instance is not valid'));
-            return;
-        }
-        if (!$this->checkVariables()) {
-            echo $this->Translate('No valid variable is selected');
-            $this->SetStatus(201);
-            return;
-        }
-        $aggregationStage = $this->ReadPropertyInteger('AggregationStage');
-        $timeStamp = $this->validTimestamps(false, $this->ReadPropertyString('AggregationStart'), $this->ReadPropertyString('AggregationEnd'));
-        $startTimeStamp = $timeStamp[0];
-        $endTimeStamp = $timeStamp[1];
+        try {
+            //Check the configuration again, so a failed sending is retried on the next interval
+            $status = $this->checkInstanceStatus();
+            if ($status != 102) {
+                $this->SetStatus($status);
+                $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Instance is not valid'));
+                return;
+            }
+            $aggregationStage = $this->ReadPropertyInteger('AggregationStage');
+            $timeStamp = $this->validTimestamps(false, $this->ReadPropertyString('AggregationStart'), $this->ReadPropertyString('AggregationEnd'));
+            $startTimeStamp = $timeStamp[0];
+            $endTimeStamp = $timeStamp[1];
 
-        $relativePath = $this->Export($aggregationStage, $startTimeStamp, $endTimeStamp);
-        $filePath = $this->getExportPath();
-        if ($filePath !== false) {
-            $this->SetStatus(102);
-        }
+            if ($this->Export($aggregationStage, $startTimeStamp, $endTimeStamp) === false) {
+                $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('The export failed'));
+                return;
+            }
+            $filePath = $this->getExportPath();
 
-        if ($this->ReadPropertyBoolean('SendMail') || $fromForm == 'Mail') {
-            $this->sendExportMail($relativePath, $filePath);
+            $sent = true;
+            if ($fromForm == '' ? $this->ReadPropertyBoolean('SendMail') : $fromForm == 'Mail') {
+                $sent = $this->sendExportMail($filePath, $startTimeStamp, $endTimeStamp);
+            }
+            if ($fromForm == '' ? $this->ReadPropertyBoolean('SendFTP') : $fromForm == 'FTP') {
+                $sent = $this->sendFTP($filePath) && $sent;
+            }
+            if ($sent) {
+                $this->SetStatus(102);
+                $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Done'));
+            }
+        } finally {
+            //Clean up
+            $this->UpdateFormField('ExportBar', 'visible', false);
+            $this->DeleteZip();
+            $this->UpdateCyclicInterval();
         }
-        if ($this->ReadPropertyBoolean('SendFTP') || $fromForm == 'FTP') {
-            $this->sendFTP($relativePath, $filePath);
-        }
-
-        //Clean up
-        $this->DeleteZip();
-        $this->UpdateCyclicInterval();
     }
 
     /**
@@ -402,31 +411,31 @@ class CSVZipExport extends WebHookModule
     /**
      * Send the Zip / Csv File per Email
      */
-    private function sendExportMail($relativePath, $absolutePath)
+    private function sendExportMail($absolutePath, $startTimeStamp, $endTimeStamp): bool
     {
         $smtpInstanceID = $this->ReadPropertyInteger('SMTPInstance');
 
         if (!@IPS_InstanceExists($smtpInstanceID)) {
-            $this->SendDebug('SMTP-Instance', $this->Translate('No valid SMTP-Instance selected'), 0);
+            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate("The selected SMTP-Instance doesn't exist"));
+            $this->SetStatus(203);
+            return false;
+        }
+        if (IPS_GetInstance($smtpInstanceID)['ModuleInfo']['ModuleID'] != '{375EAF21-35EF-4BC4-83B3-C780FD8BD88A}') {
+            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('No valid SMTP-Instance selected'));
             $this->SetStatus(202);
-            if (@IPS_GetInstance($smtpInstanceID)['ModuleInfo']['ModuleID'] != '{375EAF21-35EF-4BC4-83B3-C780FD8BD88A}') {
-                echo $this->Translate("The selected SMTP-Instance doesn't exist");
-                $this->SetStatus(203);
-            }
-            return;
+            return false;
         }
 
-        $subject = sprintf($this->Translate('Summary of %s (%s to %s)'), IPS_GetName($this->InstanceID), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationStart')), date('d.m.Y H:i:s', $this->ExtractTimestamp('AggregationEnd')));
-        if (SMTP_SendMailAttachment($smtpInstanceID, $subject, $this->Translate('In the appendix you can find the created CSV-File.'), $absolutePath)) {
-
-            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Done'));
-            $this->UpdateFormField('ExportBar', 'visible', false);
+        $subject = sprintf($this->Translate('Summary of %s (%s to %s)'), IPS_GetName($this->InstanceID), date('d.m.Y H:i:s', $startTimeStamp), date('d.m.Y H:i:s', $endTimeStamp));
+        if (!SMTP_SendMailAttachment($smtpInstanceID, $subject, $this->Translate('In the appendix you can find the created CSV-File.'), $absolutePath)) {
+            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('The mail could not be sent'));
+            return false;
         }
-
+        return true;
     }
 
     /** Send ZIP/ CSV per (S)FTP(S) */
-    private function sendFTP($relativePath, $absolutePath)
+    private function sendFTP($absolutePath): bool
     {
         $semaphore = 'SendCSV' . $this->InstanceID;
         if (!IPS_SemaphoreEnter($semaphore, 1000)) {
@@ -470,8 +479,6 @@ class CSVZipExport extends WebHookModule
                 $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('The file could not be transferred'));
                 return false;
             }
-            $this->UpdateFormField('InformationLabel', 'caption', $this->Translate('Done'));
-            $this->UpdateFormField('ExportBar', 'visible', false);
             return true;
         } finally {
             if ($connection !== false) {
@@ -720,12 +727,6 @@ class CSVZipExport extends WebHookModule
         return $variableID . '_' . preg_replace('/[\"\<\>\?\|\\/\:\/]/', '_', ($username == '' ? IPS_GetName($variableID) : $username)) . $extension;
     }
 
-    private function ExtractTimestamp($property)
-    {
-        $timeProperty = json_decode($this->ReadPropertyString($property), true);
-        return mktime($timeProperty['hour'], $timeProperty['minute'], $timeProperty['second'], $timeProperty['month'], $timeProperty['day'], $timeProperty['year']);
-    }
-
     /** Get all logged variables as options if the syncMySql-Module is available */
     private function GetOptions($filter = '')
     {
@@ -954,21 +955,9 @@ class CSVZipExport extends WebHookModule
                     return 202;
                 }
             }
-            // If FTP/FTPS/SFTP is true, is the Connection valid?
-            if ($this->ReadPropertyBoolean('SendFTP')) {
-
-                try {
-                    $connection = $this->createConnectionEx(
-                        $this->ReadPropertyString('Host'),
-                        $this->ReadPropertyInteger('Port'),
-                        $this->ReadPropertyString('Username'),
-                        $this->ReadPropertyString('Password'),
-                        $this->ReadPropertyString('ConnectionType'),
-                    );
-                    $connection->disconnect();
-                } catch (\Throwable $th) {
-                    return 205;
-                }
+            // If FTP/FTPS/SFTP is true, is a host set? The connection itself is checked while sending
+            if ($this->ReadPropertyBoolean('SendFTP') && $this->ReadPropertyString('Host') == '') {
+                return 205;
             }
         }
         return 102;
